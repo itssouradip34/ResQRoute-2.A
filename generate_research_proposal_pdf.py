@@ -1,6 +1,6 @@
 import os
 import sys
-from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.pagesizes import letter
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, 
     PageBreak, KeepTogether, HRFlowable
@@ -10,6 +10,7 @@ from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 
 PDF_OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "docs", "ResQRoute_AI_Research_Proposal.pdf")
+ROOT_PDF_PATH = os.path.join(os.path.dirname(__file__), "ResQRoute_AI_Research_Proposal.pdf")
 SCREENSHOTS_DIR = os.path.join(os.path.dirname(__file__), "docs", "screenshots")
 
 class NumberedCanvas(canvas.Canvas):
@@ -36,7 +37,7 @@ class NumberedCanvas(canvas.Canvas):
         
         # Header (pages > 1)
         if self._pageNumber > 1:
-            self.drawString(54, 750, "ResQRoute AI 2.0 | Research Proposal & Global Internship Dossier")
+            self.drawString(54, 750, "ResQRoute AI 2.0: Technical Research Proposal | Souradip Patra (IISER Bhopal)")
             self.setStrokeColor(colors.HexColor("#CBD5E1"))
             self.setLineWidth(0.5)
             self.line(54, 744, 558, 744)
@@ -44,7 +45,7 @@ class NumberedCanvas(canvas.Canvas):
         # Footer
         page_str = f"Page {self._pageNumber} of {page_count}"
         self.drawRightString(558, 36, page_str)
-        self.drawString(54, 36, "CONFIDENTIAL & PROPRIETARY | Author: Souradip Ghosh (itssouradip@gmail.com)")
+        self.drawString(54, 36, "Author: Souradip Patra | Student, DSE, IISER Bhopal | souradip25@gmail.com")
         self.setStrokeColor(colors.HexColor("#CBD5E1"))
         self.setLineWidth(0.5)
         self.line(54, 48, 558, 48)
@@ -62,90 +63,90 @@ def build_pdf():
     
     styles = getSampleStyleSheet()
     
-    # Custom styles
+    # Custom typography
     title_style = ParagraphStyle(
         'DocTitle',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=21,
-        leading=25,
+        fontSize=20,
+        leading=24,
         textColor=colors.HexColor('#0F172A'),
-        spaceAfter=6
+        spaceAfter=5
     )
     subtitle_style = ParagraphStyle(
         'DocSubtitle',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=11,
-        leading=15,
+        fontSize=10.5,
+        leading=14.5,
         textColor=colors.HexColor('#334155'),
-        spaceAfter=12
+        spaceAfter=10
     )
     h1_style = ParagraphStyle(
         'Heading1_Custom',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=14,
-        leading=18,
+        fontSize=13,
+        leading=17,
         textColor=colors.HexColor('#0F172A'),
-        spaceBefore=14,
-        spaceAfter=6,
+        spaceBefore=12,
+        spaceAfter=5,
         keepWithNext=True
     )
     h2_style = ParagraphStyle(
         'Heading2_Custom',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=11,
-        leading=15,
+        fontSize=10,
+        leading=14,
         textColor=colors.HexColor('#1E293B'),
-        spaceBefore=10,
-        spaceAfter=4,
+        spaceBefore=8,
+        spaceAfter=3,
         keepWithNext=True
     )
     body_style = ParagraphStyle(
         'Body_Custom',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=9,
-        leading=13.5,
+        fontSize=8.8,
+        leading=13,
         textColor=colors.HexColor('#334155'),
-        spaceAfter=6
+        spaceAfter=5
     )
     bullet_style = ParagraphStyle(
         'Bullet_Custom',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=8.8,
-        leading=13,
+        fontSize=8.5,
+        leading=12.5,
         textColor=colors.HexColor('#334155'),
-        leftIndent=15,
+        leftIndent=14,
         spaceAfter=3
     )
     caption_style = ParagraphStyle(
         'Caption_Custom',
         parent=styles['Normal'],
         fontName='Helvetica-Oblique',
-        fontSize=8,
-        leading=11,
+        fontSize=7.8,
+        leading=10.5,
         textColor=colors.HexColor('#475569'),
         alignment=1, # Center
-        spaceBefore=4,
-        spaceAfter=8
+        spaceBefore=3,
+        spaceAfter=7
     )
     callout_style = ParagraphStyle(
         'Callout_Custom',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=8.5,
-        leading=12.5,
+        fontSize=8.2,
+        leading=12,
         textColor=colors.HexColor('#0F172A')
     )
     table_text = ParagraphStyle(
         'TableText',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=8,
+        fontSize=7.8,
         leading=10.5,
         textColor=colors.HexColor('#1E293B')
     )
@@ -153,7 +154,7 @@ def build_pdf():
         'TableHeader',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=8.2,
+        fontSize=8,
         leading=11,
         textColor=colors.white
     )
@@ -161,11 +162,11 @@ def build_pdf():
     story = []
 
     # =========================================================================
-    # COVER / HEADER BANNER
+    # HEADER BANNER & AUTHOR METADATA
     # =========================================================================
     banner_data = [[
-        Paragraph("<b>PROJECT RESEARCH PROPOSAL & INTERNSHIP FELLOWSHIP DOSSIER</b>", ParagraphStyle('B1', fontName='Helvetica-Bold', fontSize=9, textColor=colors.HexColor('#2563EB'))),
-        Paragraph("<b>DATE: SEPTEMBER 2026</b>", ParagraphStyle('B2', fontName='Helvetica-Bold', fontSize=9, textColor=colors.HexColor('#64748B'), alignment=2))
+        Paragraph("<b>TECHNICAL RESEARCH PROPOSAL & SYSTEM WHITEPAPER</b>", ParagraphStyle('B1', fontName='Helvetica-Bold', fontSize=8.5, textColor=colors.HexColor('#2563EB'))),
+        Paragraph("<b>DATE: SEPTEMBER 2026</b>", ParagraphStyle('B2', fontName='Helvetica-Bold', fontSize=8.5, textColor=colors.HexColor('#64748B'), alignment=2))
     ]]
     t_banner = Table(banner_data, colWidths=[350, 154])
     t_banner.setStyle(TableStyle([
@@ -174,140 +175,140 @@ def build_pdf():
         ('TOPPADDING', (0,0), (-1,-1), 0),
     ]))
     story.append(t_banner)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
     story.append(Paragraph("ResQRoute AI 2.0: Physics-Grounded Collision Telematics, Multi-Modal Acoustic Verification & Tamper-Proof Cloud Forensics", title_style))
-    story.append(Paragraph("A Zero-Dependency Embedded AI Framework Engineered for Mixed Unstructured Traffic and Two-Wheeler Safety", subtitle_style))
+    story.append(Paragraph("An Embedded Zero-Dependency Edge Architecture Engineered for Unstructured Mixed Traffic and Two-Wheeler Safety", subtitle_style))
     
-    # Metadata Badge Card
+    # Metadata Badge Card - PROPER AUTHOR INFO
     meta_data = [
         [
-            Paragraph("<b>Principal Investigator:</b> Souradip Ghosh<br/><b>Affiliation:</b> AI & Telematics Engineering Lead<br/><b>Email:</b> itssouradip@gmail.com", callout_style),
-            Paragraph("<b>Target Venues:</b> Academic Labs (MIT, Berkeley, CMU, TUM, IISc)<br/><b>Industry Labs:</b> Cambridge Mobile Telematics, Zendrive, Bosch, Continental<br/><b>GitHub:</b> github.com/itssouradip34/ResQRoute-2.A", callout_style)
+            Paragraph("<b>Author:</b> Souradip Patra<br/><b>Department:</b> Data Science & Engineering (DSE), 2nd Year<br/><b>Institution:</b> Indian Institute of Science Education and Research (IISER) Bhopal", callout_style),
+            Paragraph("<b>Email:</b> souradip25@gmail.com<br/><b>Open-Source Repository:</b> github.com/itssouradip34/ResQRoute-2.A<br/><b>Primary Focus:</b> Mobile Sensor Computing, Collision Telematics, Edge AI", callout_style)
         ]
     ]
-    t_meta = Table(meta_data, colWidths=[240, 264])
+    t_meta = Table(meta_data, colWidths=[270, 234])
     t_meta.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F8FAFC')),
         ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#CBD5E1')),
-        ('TOPPADDING', (0,0), (-1,-1), 8),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-        ('LEFTPADDING', (0,0), (-1,-1), 10),
-        ('RIGHTPADDING', (0,0), (-1,-1), 10),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 9),
+        ('RIGHTPADDING', (0,0), (-1,-1), 9),
     ]))
     story.append(t_meta)
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 10))
 
     # =========================================================================
-    # 1. EXECUTIVE SUMMARY & PROBLEM STATEMENT
+    # 1. ABSTRACT & PROBLEM STATEMENT
     # =========================================================================
-    story.append(Paragraph("1. Executive Summary & Problem Formulation", h1_style))
+    story.append(Paragraph("1. Abstract & Problem Formulation", h1_style))
     story.append(Paragraph(
-        "Worldwide, road traffic collisions account for over <b>1.19 million deaths annually</b> and more than 50 million severe injuries, with low- and middle-income nations bearing over 90% of the casualties. In India alone, over 168,000 lives are claimed each year on highways and urban arteries. More than 45% of highway collision fatalities occur during the <i>'Golden Hour'</i>—the critical 60-minute window post-crash where rapid trauma care and surgical intervention can drastically reduce mortality.",
+        "Worldwide, road traffic collisions claim over <b>1.19 million lives every year</b>, with over 90% of casualties occurring in developing nations. In India alone, road accidents cause more than 168,000 fatalities and 450,000 debilitating injuries annually. Over 45% of highway collision fatalities occur during the critical <i>'Golden Hour'</i>—the first 60 minutes where rapid trauma retrieval directly dictates clinical survival.",
         body_style
     ))
     story.append(Paragraph(
-        "Commercial smartphone crash detection systems (e.g., Apple Crash Detection, Google Pixel Safety) rely on proprietary models tuned predominantly for passenger vehicles navigating high-income, well-structured highway infrastructure. When deployed in developing countries such as India, these solutions fail catastrophically due to three fundamental domain gaps:",
+        "Existing commercial crash detection algorithms (e.g., Apple Crash Detection, Google Pixel Safety) rely on proprietary models calibrated primarily for structured highways and four-wheeled enclosed vehicles. When deployed in unstructured, developing traffic environments, they suffer from critical operational failures:",
         body_style
     ))
-    story.append(Paragraph("• <b>High False-Alarm Rates from Potholes & Vibrations:</b> Severe road surface unevenness and speed-breakers produce instantaneous vertical accelerations up to 3G, falsely triggering automated emergency calls.", bullet_style))
-    story.append(Paragraph("• <b>Motorcycle & Two-Wheeler Blind Spots:</b> Over 70% of vehicles in developing countries are two-wheelers. Normal motorcycle cornering involves high rotational roll velocities (2.5 - 3.2 rad/s) which naive algorithms misclassify as vehicle rollover accidents.", bullet_style))
-    story.append(Paragraph("• <b>Stationary Phone Handling False Triggers:</b> At zero speed (t=0, v=0), dropping or vigorously shaking the phone in hand induces high acceleration jerks that trigger false 112 emergency calls.", bullet_style))
+    story.append(Paragraph("• <b>Extreme False Positives from Road Anomalies:</b> Potholes, sudden speed-breakers, and rumble strips generate vertical acceleration spikes up to 3G, overwhelming emergency dispatchers with false alarms.", bullet_style))
+    story.append(Paragraph("• <b>Two-Wheeler Dynamics Blind Spot:</b> Two-wheelers represent >70% of traffic in developing nations. Standard motorcycle cornering reaches rotational roll velocities exceeding 2.5 rad/s, which commercial algorithms frequently misclassify as vehicle rollover accidents.", bullet_style))
+    story.append(Paragraph("• <b>Stationary Phone Shake False Triggers:</b> When a vehicle is parked or stationary (t=0, v=0), dropping or vigorously shaking the smartphone produces high jerk values that trigger false 112 emergency calls.", bullet_style))
     story.append(Paragraph(
-        "<b>ResQRoute AI 2.0</b> addresses these challenges through a hybrid architecture combining physics-derived kinematic rule matrices, multi-modal acoustic verification, dynamic driver personalization, and a tamper-proof cryptographic blackbox flight recorder.",
+        "<b>ResQRoute AI 2.0</b> addresses these fundamental limitations through a unified, zero-dependency embedded telematics engine combining empirical kinematic rule matrices, multi-modal acoustic crunch verification, dynamic driver personalization, and a cryptographic flight recorder.",
         body_style
     ))
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
     # =========================================================================
-    # 2. CORE ARCHITECTURE & ZERO .PT PARADIGM
+    # 2. SYSTEM ARCHITECTURE & ZERO .PT PARADIGM
     # =========================================================================
-    story.append(Paragraph("2. System Architecture: The Zero-.pt Embedded Paradigm", h1_style))
+    story.append(Paragraph("2. Embedded Architecture: The Zero-.pt Paradigm", h1_style))
     story.append(Paragraph(
-        "Conventional mobile AI workflows deploy heavyweight neural model containers such as PyTorch Mobile (.pt), TensorFlow Lite (.tflite), or ONNX Runtime. In mission-critical emergency applications, these containers impose significant penalties: 80-150 MB binary bloat, 2-3 second cold-boot initializations, and non-trivial battery consumption that leads operating systems to kill background services.",
+        "Standard mobile machine learning deployments rely on heavyweight frameworks such as PyTorch Mobile (.pt), TensorFlow Lite (.tflite), or ONNX Runtime. In emergency life-safety applications, these frameworks introduce severe drawbacks: 80–150 MB binary bloat, 2–3 second cold-boot latencies, and heavy RAM consumption that causes mobile OS task-managers to kill background listeners.",
         body_style
     ))
     story.append(Paragraph(
-        "ResQRoute AI 2.0 establishes a <b>Zero-.pt Pure Matrix Architecture</b>. Neural networks are trained in Python using PyTorch, after which the learned synaptic weights, biases, and normalization parameters are exported into highly compressed JSON parameter tensors. On the client device (React Native / TypeScript), a hand-crafted vectorized forward-pass engine evaluates inferences directly in <b>&lt; 3 milliseconds</b> with zero external native C++ library dependencies.",
+        "ResQRoute AI 2.0 introduces a <b>Zero-.pt Pure Matrix Architecture</b>. Neural networks are trained in Python on empirical crash telemetry, after which synaptic weights, biases, and activation parameters are exported into lightweight, compressed JSON tensors. In the mobile client, a hand-crafted vectorized forward-pass engine computes inferences directly in <b>&lt; 3 milliseconds</b> with zero external native C++ dependencies, eliminating cold starts entirely.",
         body_style
     ))
 
-    # Architecture summary table
+    # Table: System Architectural Layers
     arch_data = [
-        [Paragraph("Subsystem Layer", table_header), Paragraph("Underlying Technology", table_header), Paragraph("Functional Capability", table_header)],
+        [Paragraph("Subsystem Layer", table_header), Paragraph("Underlying Stack", table_header), Paragraph("Technical Specification", table_header)],
         [
             Paragraph("<b>Kinematic Engine</b>", table_text),
             Paragraph("Vectorized MLP + VZCrash Rules<br/>(Pure TypeScript / JSON)", table_text),
-            Paragraph("Evaluates 10 Hz accelerometer, jerk, gyroscope, and speed-drop telemetry. Zero cold-start latency.", table_text)
+            Paragraph("Processes 10 Hz accelerometer, jerk, gyroscope, and speed-drop telemetry. Computes continuous forward-pass classification in &lt;3 ms.", table_text)
         ],
         [
             Paragraph("<b>Acoustic Guardian</b>", table_text),
-            Paragraph("Audio Mel-Energy Classifier<br/>(Expo Audio + Neural Filter)", table_text),
-            Paragraph("Listens for high-decibel metal crunch, glass shatter, and air-bag deployment signatures. Protected by explicit user consent.", table_text)
+            Paragraph("Mel-Energy Feedforward Net<br/>(Expo Audio + Consent Guard)", table_text),
+            Paragraph("Classifies short-time energy, spectral centroid, and metal crunch/glass shatter signatures upon kinematic shock triggers. Guarded by strict user consent.", table_text)
         ],
         [
             Paragraph("<b>Geospatial Radar</b>", table_text),
             Paragraph("OpenStreetMap Overpass API<br/>+ Haversine Vector Math", table_text),
-            Paragraph("Real-time bounding box discovery of hospitals, trauma centers, police stations, and 24x7 recovery services within 15 km.", table_text)
+            Paragraph("Discovers nearest Level-1 trauma centers, police stations, and 24x7 highway rescue units within a 15 km bounding box with turn-by-turn routing.", table_text)
         ],
         [
-            Paragraph("<b>Forensic Blackbox</b>", table_text),
-            Paragraph("10s Circular Telemetry Buffer<br/>+ SHA-256 Cloud Sync", table_text),
-            Paragraph("Cryptographically signs pre-impact dynamics and syncs to Supabase Cloud, ensuring evidence survivability if hardware is destroyed.", table_text)
+            Paragraph("<b>Forensic Flight Recorder</b>", table_text),
+            Paragraph("10s Rolling Telemetry Buffer<br/>+ SHA-256 Cloud Sync", table_text),
+            Paragraph("Maintains a continuous 100-frame pre-impact circular buffer. Signs the telemetry payload with an immutable SHA-256 seal synced to Supabase Cloud.", table_text)
         ],
     ]
-    t_arch = Table(arch_data, colWidths=[100, 160, 244])
+    t_arch = Table(arch_data, colWidths=[105, 155, 244])
     t_arch.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')),
         ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#CBD5E1')),
         ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
-        ('TOPPADDING', (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
     ]))
     story.append(t_arch)
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 8))
 
     # =========================================================================
-    # 3. KINEMATIC THRESHOLDS & MATHEMATICAL DERIVATION
+    # 3. KINEMATIC THRESHOLDS & VZCRASH BENCHMARKS
     # =========================================================================
-    story.append(Paragraph("3. Kinematic Thresholds & VZCrash Derivations", h1_style))
+    story.append(Paragraph("3. Empirical Kinematic Thresholds & Mathematical Rules", h1_style))
     story.append(Paragraph(
-        "To ground anomaly detection in real-world vehicle physics, the system is calibrated using the <b>VZCrash dataset</b> (HuggingFace <code>vzc-research-chapter/VZCrash</code>), containing thousands of instrumented multi-vehicle collision records, rollover telemetry, and aggressive non-crash driving maneuvers. ResQRoute partitions kinematic behavior into deterministic rules:",
+        "To establish deterministic safety bounds, the engine is calibrated using the <b>VZCrash dataset</b> (HuggingFace <code>vzc-research-chapter/VZCrash</code>), comprising thousands of multi-vehicle crash pulses, rollover dynamics, and aggressive non-crash driving profiles. The system categorizes motion into deterministic physics rules:",
         body_style
     ))
 
     thresh_data = [
-        [Paragraph("Collision Rule", table_header), Paragraph("Kinematic Condition", table_header), Paragraph("VZCrash Threshold", table_header), Paragraph("System Classification", table_header)],
+        [Paragraph("Collision Rule", table_header), Paragraph("Kinematic Condition", table_header), Paragraph("VZCrash Threshold", table_header), Paragraph("Output & Dispatch Behavior", table_header)],
         [
             Paragraph("<b>Rule A: Obstacle Deceleration</b>", table_text),
             Paragraph("Sudden drop in acceleration, zero chassis roll/pitch", table_text),
             Paragraph("Jerk &ge; 25 m/s³<br/>Speed Drop &ge; 22 km/h<br/>Gyro &lt; 2.0 rad/s", table_text),
-            Paragraph("<b>OBSTACLE_FACED</b><br/>(Caution Alert, Driver Query)", table_text)
+            Paragraph("<b>OBSTACLE_FACED</b><br/>Driver caution alert; no SOS.", table_text)
         ],
         [
             Paragraph("<b>Rule B: Heavy Bump / Pothole</b>", table_text),
             Paragraph("Steady speed, angular oscillation without severe shock", table_text),
             Paragraph("Jerk &lt; 15 m/s³<br/>Speed Drop &le; 5 km/h<br/>Gyro &ge; 2.8 rad/s", table_text),
-            Paragraph("<b>HEAVY_BUMP</b><br/>(Filtered / SOS Suppressed)", table_text)
+            Paragraph("<b>HEAVY_BUMP</b><br/>Suppressed; prevents false alarm.", table_text)
         ],
         [
             Paragraph("<b>Rule C: Vehicular Crash</b>", table_text),
             Paragraph("Simultaneous extreme deceleration shock and violent rotation", table_text),
             Paragraph("Jerk &ge; 25 m/s³<br/>Speed Drop &ge; 22 km/h<br/>Gyro &ge; 2.8 rad/s", table_text),
-            Paragraph("<b>POSSIBLE_ACCIDENT</b><br/>(10s Cancelable SOS Trigger)", table_text)
+            Paragraph("<b>POSSIBLE_ACCIDENT</b><br/>10s Cancelable SOS Trigger.", table_text)
         ],
         [
             Paragraph("<b>Stationary Shake Guard</b>", table_text),
             Paragraph("Violent hand shaking while vehicle is parked (v=0)", table_text),
             Paragraph("Speed Before &lt; 12 km/h<br/>Speed After &lt; 12 km/h", table_text),
-            Paragraph("<b>PHONE_SHAKE</b><br/>(Confidence 0.05, Filtered)", table_text)
+            Paragraph("<b>PHONE_SHAKE</b><br/>Confidence 0.05; SOS blocked.", table_text)
         ],
         [
             Paragraph("<b>Two-Wheeler Lean Adapter</b>", table_text),
             Paragraph("Motorcycle leaning during high-speed cornering", table_text),
             Paragraph("Gyro Bump Threshold elevated from 2.8 &rarr; <b>3.64 rad/s</b> (+30%)", table_text),
-            Paragraph("<b>NORMAL_CORNERING</b><br/>(Prevents false rollover SOS)", table_text)
+            Paragraph("<b>NORMAL_CORNERING</b><br/>Allows safe rider lean angles.", table_text)
         ]
     ]
     t_thresh = Table(thresh_data, colWidths=[110, 140, 134, 120])
@@ -315,25 +316,25 @@ def build_pdf():
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
         ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#CBD5E1')),
         ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
-        ('TOPPADDING', (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
     ]))
     story.append(t_thresh)
-    story.append(Spacer(1, 14))
+    story.append(Spacer(1, 10))
 
-    # Page Break to start Features with visual plates
+    # Page Break for Visual Feature Showcase
     story.append(PageBreak())
 
     # =========================================================================
-    # 4. SYSTEM FEATURES & SCREENSHOT SHOWCASE
+    # 4. SYSTEM FEATURES & VISUAL ARCHITECTURE PLATES
     # =========================================================================
-    story.append(Paragraph("4. Core Features & Empirical System Showcase", h1_style))
+    story.append(Paragraph("4. System Features & Visual Architecture Gallery", h1_style))
     story.append(Paragraph(
-        "Below are high-resolution renderings of the six production screens comprising ResQRoute AI 2.0, demonstrating the end-to-end user workflow from pre-crash kinematics monitoring to live rescue dispatch and tamper-proof forensic auditing.",
+        "The following figures present high-resolution visual plates of the six core interfaces engineered in ResQRoute AI 2.0, demonstrating the complete user journey from real-time kinematic monitoring to emergency dispatch and post-accident forensics:",
         body_style
     ))
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
     # Plate 1: Home SOS & Sensor Lab
     img1_path = os.path.join(SCREENSHOTS_DIR, "screen_home_sos.png")
@@ -346,8 +347,8 @@ def build_pdf():
             RLImage(img2_path, width=img_w, height=img_h) if os.path.exists(img2_path) else Paragraph("Image 2 Missing", body_style)
         ],
         [
-            Paragraph("<b>Figure 1:</b> Active Crash Alert HUD showing pre-impact velocity (85 km/h), dual kinematic spike (11.2G), and 10-second cancelable emergency dispatch countdown.", caption_style),
-            Paragraph("<b>Figure 2:</b> VZCrash Sensor Lab displaying real-time live telemetry gauges, empirical threshold cards (Rules A/B/C), and interactive physical simulation triggers.", caption_style)
+            Paragraph("<b>Figure 1:</b> Active Crash Alert HUD displaying pre-impact velocity (85 km/h), dual kinematic shock (11.2G), acoustic validation tag, and 10-second cancelable SOS countdown.", caption_style),
+            Paragraph("<b>Figure 2:</b> VZCrash Sensor Lab displaying live telemetry gauges (accelerometer, jerk, gyroscope), empirical threshold rule cards (Rules A/B/C), and interactive physical simulation triggers.", caption_style)
         ]
     ]
     t_plate1 = Table(plate1_data, colWidths=[252, 252])
@@ -406,43 +407,43 @@ def build_pdf():
         ('TOPPADDING', (0,0), (-1,-1), 2),
     ]))
     story.append(t_plate3)
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 8))
 
     # =========================================================================
     # 5. DATASETS & MACHINE LEARNING PIPELINE
     # =========================================================================
-    story.append(Paragraph("5. Training Datasets & Machine Learning Pipeline", h1_style))
+    story.append(Paragraph("5. Training Datasets & Multi-Modal Verification", h1_style))
     story.append(Paragraph(
-        "To ensure robust generalization, ResQRoute combines empirical telematics benchmarks, acoustic road event corpora, and autonomous driving simulation engines:",
+        "To achieve high generalization across heterogeneous vehicle types and road conditions, ResQRoute incorporates multi-source open datasets:",
         body_style
     ))
 
     data_info = [
         [Paragraph("Dataset Corpus", table_header), Paragraph("Primary Domain", table_header), Paragraph("Utilization in ResQRoute AI 2.0", table_header)],
         [
-            Paragraph("<b>VZCrash Dataset</b><br/>(HuggingFace vzc-research-chapter)", table_text),
+            Paragraph("<b>VZCrash Dataset</b><br/>(HuggingFace vzc-research)", table_text),
             Paragraph("Vehicle Collision Kinematics", table_text),
-            Paragraph("Extracts empirical braking jerks, speed drops (&Delta;V), and rotational yaw/pitch/roll signatures across frontal, rear, and rollover crashes.", table_text)
+            Paragraph("Provides ground-truth braking jerk, delta-V speed loss, and angular rotational momentum during frontal, side, and rollover impacts.", table_text)
         ],
         [
-            Paragraph("<b>MIVIA Road Audio Events</b><br/>(Univ. of Salerno, Italy)", table_text),
-            Paragraph("Road Acoustic Surveillance", table_text),
-            Paragraph("Provides ground-truth acoustic recordings of tire screeches and physical vehicle collisions recorded in varied acoustic environments.", table_text)
+            Paragraph("<b>MIVIA Road Audio Events</b><br/>(Univ. of Salerno)", table_text),
+            Paragraph("Acoustic Road Surveillance", table_text),
+            Paragraph("Real-world audio recordings of tire skids, sudden braking, and mechanical impacts in varied acoustic noise environments.", table_text)
         ],
         [
             Paragraph("<b>NINA & DeepCrashzam</b><br/>(AXA REV Research / GitHub)", table_text),
-            Paragraph("Accident Audio Spectrograms", table_text),
-            Paragraph("Acoustic frequency models for metal crushing, shattering safety glass, and high-energy structural deformation sounds.", table_text)
+            Paragraph("Vehicle Crash Acoustics", table_text),
+            Paragraph("High-energy acoustic spectrograms capturing structural metal deformation, air-bag detonations, and glass shatter frequencies.", table_text)
         ],
         [
             Paragraph("<b>Google AudioSet</b><br/>(AudioSet Ontology)", table_text),
-            Paragraph("General Acoustic Classes", table_text),
-            Paragraph("Negative sampling against non-crash acoustic events (engine rumble, honking, music, heavy rain, thunderstorms).", table_text)
+            Paragraph("Environmental Noise Sampling", table_text),
+            Paragraph("Negative training samples to suppress non-crash audio events (traffic horns, engine rumble, loud music, thunderstorms, heavy rain).", table_text)
         ],
         [
-            Paragraph("<b>CARLA Simulation</b><br/>(Autonomous Driving Engine)", table_text),
+            Paragraph("<b>CARLA Simulation</b><br/>(Autonomous Vehicle Engine)", table_text),
             Paragraph("PhysX 3D Dynamic Collisions", table_text),
-            Paragraph("Simulation of Indian road conditions (IDD, DriveIndia), modeling unstructured lane behavior and high-angle impact dynamics.", table_text)
+            Paragraph("Rigid-body collision simulation across Indian driving benchmarks (IDD, DriveIndia), modeling non-lane traffic and oblique angle impacts.", table_text)
         ],
     ]
     t_data = Table(data_info, colWidths=[120, 130, 254])
@@ -450,99 +451,60 @@ def build_pdf():
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
         ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#CBD5E1')),
         ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
-        ('TOPPADDING', (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
     ]))
     story.append(t_data)
     story.append(Spacer(1, 10))
 
-    # Page Break for Roadmap & Target Institutions
+    # Page Break for Research Roadmap & Technical Stack
     story.append(PageBreak())
 
     # =========================================================================
-    # 6. WHAT AN INTERNSHIP OR FUNDING WILL UNLOCK
+    # 6. SYSTEM STACK & APIS USED
     # =========================================================================
-    story.append(Paragraph("6. Research Roadmap: What Funding / An Internship Will Unlock", h1_style))
+    story.append(Paragraph("6. Production Technology Stack & APIs", h1_style))
     story.append(Paragraph(
-        "While ResQRoute AI 2.0 successfully proves real-time client-side crash inference on smartphones, transitioning this technology to widespread municipal deployment requires dedicated research infrastructure. Funding or a research fellowship will directly empower the following four pillars:",
+        "ResQRoute AI 2.0 is built on a modern, decoupled reactive architecture separating high-speed client-side edge computation from scalable cloud persistence:",
         body_style
     ))
 
-    story.append(Paragraph("<b>A. Full-Scale Crash Sled & Physical Vehicle Sled Testing:</b>", h2_style))
-    story.append(Paragraph(
-        "Current validation relies on recorded VZCrash telemetry and simulated software kinematic frames. An internship at an automotive laboratory (e.g., TUM, Bosch, Continental) will allow mounting smartphones in test sleds and instrumented vehicles to evaluate sensor dampening under diverse cabin mounts (dashboard suction, cup holders, air-vent grips, rider jacket pockets).",
-        body_style
-    ))
-
-    story.append(Paragraph("<b>B. CAN-Bus & OBD-II Bluetooth Multi-Sensor Fusion:</b>", h2_style))
-    story.append(Paragraph(
-        "Fusing smartphone IMU and acoustic streams with vehicle CAN-bus data (wheel speed, airbag deployment trigger, brake pedal pressure, seatbelt tensioner status) via low-energy Bluetooth dongles to achieve five-nines (99.999%) detection precision.",
-        body_style
-    ))
-
-    story.append(Paragraph("<b>C. CARLA 3D Digital Twin of Indian Unstructured Traffic:</b>", h2_style))
-    story.append(Paragraph(
-        "Authoring an open-source CARLA digital twin featuring Indian traffic physics: non-lane-based vehicle squeezing, auto-rickshaws, stray cattle, and uneven road geometries, creating the world's first benchmark suite for two-wheeler accident AI.",
-        body_style
-    ))
-
-    story.append(Paragraph("<b>D. Direct Dispatch API Integration with National ERSS-112:</b>", h2_style))
-    story.append(Paragraph(
-        "Establishing encrypted web-socket handshakes with municipal emergency dispatch centers (Dial 112 in India, 911 in the US, 112 in Europe), feeding automated patient vitals, GPS coordinates, and vehicle damage estimates directly onto dispatcher screens.",
-        body_style
-    ))
-    story.append(Spacer(1, 10))
-
-    # =========================================================================
-    # 7. TARGET PROFESSORS & ACADEMIC LABS
-    # =========================================================================
-    story.append(Paragraph("7. Target Academic Professors & Research Labs Worldwide", h1_style))
-    story.append(Paragraph(
-        "The following leading professors and research groups lead the frontier in Intelligent Transportation Systems (ITS), mobile pervasive sensing, and vehicle crash dynamics, representing ideal advisors for research internships and MS/PhD funding:",
-        body_style
-    ))
-
-    profs = [
-        [Paragraph("Professor / Lab", table_header), Paragraph("Institution & Country", table_header), Paragraph("Research Domain & Alignment", table_header)],
+    stack_data = [
+        [Paragraph("Component", table_header), Paragraph("Technology / API", table_header), Paragraph("Technical Role & Implementation Details", table_header)],
         [
-            Paragraph("<b>Prof. Hari Balakrishnan</b><br/>(Co-founder, Cambridge Mobile Telematics)", table_text),
-            Paragraph("MIT CSAIL<br/>(Cambridge, USA)", table_text),
-            Paragraph("Pioneer of mobile sensor crash detection, CarTel systems, telematics algorithms, and networked sensing.", table_text)
+            Paragraph("<b>Frontend Framework</b>", table_text),
+            Paragraph("React Native (v0.86) + Expo (SDK 57)", table_text),
+            Paragraph("Cross-platform native mobile runtime delivering 60 FPS animated UI and low-level hardware sensor bindings.", table_text)
         ],
         [
-            Paragraph("<b>Prof. Alexandre Bayen</b><br/>(Director, Institute of Transp. Studies)", table_text),
-            Paragraph("UC Berkeley / PATH<br/>(Berkeley, USA)", table_text),
-            Paragraph("Connected vehicle safety, mobile traffic estimation, mobile sensing for highway safety and incident response.", table_text)
+            Paragraph("<b>Hardware Sensors</b>", table_text),
+            Paragraph("Expo Sensors (Accelerometer, Gyroscope, DeviceMotion)", table_text),
+            Paragraph("Samples continuous 10 Hz 3-axis acceleration and angular rate vectors, computing real-time vector magnitudes and jerk derivatives.", table_text)
         ],
         [
-            Paragraph("<b>Prof. Bhiksha Raj / Prof. Rita Singh</b><br/>(Speech & Audio Processing Lab)", table_text),
-            Paragraph("Carnegie Mellon University<br/>(Pittsburgh, USA)", table_text),
-            Paragraph("Acoustic event detection, audio forensics, recognizing physical impacts and sirens in public environments.", table_text)
+            Paragraph("<b>Geospatial Engine</b>", table_text),
+            Paragraph("Expo Location + OpenStreetMap Overpass API", table_text),
+            Paragraph("High-accuracy GPS tracking paired with live Overpass QL queries to dynamically discover emergency medical and rescue infrastructure.", table_text)
         ],
         [
-            Paragraph("<b>Prof. Alois Knoll</b><br/>(Chair of Robotics & Embedded Systems)", table_text),
-            Paragraph("Technical University of Munich<br/>(Munich, Germany)", table_text),
-            Paragraph("Autonomous vehicles, digital twin collision simulation, CARLA simulator contributions, active automotive safety.", table_text)
+            Paragraph("<b>Acoustic Engine</b>", table_text),
+            Paragraph("Expo Audio (Audio.Recording)", table_text),
+            Paragraph("Low-latency buffered audio feature extractor guarded by explicit in-app user consent modal.", table_text)
         ],
         [
-            Paragraph("<b>Prof. Marco Gruteser</b><br/>(WINLAB Wireless Info Lab)", table_text),
-            Paragraph("Rutgers University<br/>(Piscataway, USA)", table_text),
-            Paragraph("Vehicular networking, smartphone driver tracking, pedestrian crash warning systems, sensor fusion.", table_text)
+            Paragraph("<b>Cloud & Database</b>", table_text),
+            Paragraph("Supabase (PostgreSQL + Auth + Edge Functions)", table_text),
+            Paragraph("Encrypted driver profile storage, remote incident syncing, and cloud forensic packet persistence.", table_text)
         ],
         [
-            Paragraph("<b>Prof. Gitakrishnan Ramadurai</b><br/>(Urban Transport CoE)", table_text),
-            Paragraph("IIT Madras<br/>(Chennai, India)", table_text),
-            Paragraph("Indian driving behavior, heterogeneous non-lane traffic modeling, two-wheeler crash analysis.", table_text)
-        ],
-        [
-            Paragraph("<b>Prof. Rajesh Sundaresan</b><br/>(Robert Bosch Cyber-Physical Systems)", table_text),
-            Paragraph("IISc Bangalore<br/>(Bangalore, India)", table_text),
-            Paragraph("Cyber-physical transportation networks, smart mobility telematics, road safety algorithms.", table_text)
+            Paragraph("<b>Emergency Comms</b>", table_text),
+            Paragraph("Expo SMS + Native Dialer + Mock Telephony", table_text),
+            Paragraph("Automated SMS dispatch with Google Maps pinpoint coordinates and direct one-touch 112 / 108 emergency telephony integration.", table_text)
         ],
     ]
-    t_profs = Table(profs, colWidths=[130, 110, 264])
-    t_profs.setStyle(TableStyle([
+    t_stack = Table(stack_data, colWidths=[110, 150, 244])
+    t_stack.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')),
         ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#CBD5E1')),
         ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
@@ -550,107 +512,63 @@ def build_pdf():
         ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
     ]))
-    story.append(t_profs)
-    story.append(Spacer(1, 10))
-
-    # Page Break for Industry & Fellowships
-    story.append(PageBreak())
-
-    # =========================================================================
-    # 8. TARGET INDUSTRY LABS & CORPORATE SPONSORS
-    # =========================================================================
-    story.append(Paragraph("8. Target Industry R&D Labs & Telematics Corporations", h1_style))
-    story.append(Paragraph(
-        "Commercial telematics giants, tier-1 automotive suppliers, and mobility operators invest hundreds of millions annually into smartphone collision detection and digital flight recorders:",
-        body_style
-    ))
-
-    companies = [
-        [Paragraph("Company & Division", table_header), Paragraph("Global Locations", table_header), Paragraph("Strategic Synergy & Internship Scope", table_header)],
-        [
-            Paragraph("<b>Cambridge Mobile Telematics (CMT)</b><br/>(DriveWell Platform Team)", table_text),
-            Paragraph("Boston (USA), London (UK), Tokyo (Japan)", table_text),
-            Paragraph("Global market leader in smartphone crash detection. Powers insurance telematics for 21M+ drivers. Direct fit for kinematic ML research.", table_text)
-        ],
-        [
-            Paragraph("<b>Zendrive</b><br/>(Mobility Safety AI Lab)", table_text),
-            Paragraph("San Francisco (USA), Bangalore (India)", table_text),
-            Paragraph("Pioneers of mobile sensor telematics. Large R&D base in Bangalore focusing on Indian road safety and multi-modal transit.", table_text)
-        ],
-        [
-            Paragraph("<b>Bosch Mobility Solutions</b><br/>(Active Safety & Two-Wheeler Systems)", table_text),
-            Paragraph("Stuttgart (Germany), Bangalore (India)", table_text),
-            Paragraph("World leader in vehicle stability and eCall hardware. R&D division builds connected motorcycle safety systems (Help Connect).", table_text)
-        ],
-        [
-            Paragraph("<b>Continental Automotive</b><br/>(Passive Safety & Sensorics)", table_text),
-            Paragraph("Frankfurt (Germany), Bangalore (India)", table_text),
-            Paragraph("Develops crash sensing algorithms, airbag control units, and V2X vehicle-to-cloud emergency warning networks.", table_text)
-        ],
-        [
-            Paragraph("<b>Life360 / Tile</b><br/>(Crash Detection & Family Safety)", table_text),
-            Paragraph("San Francisco (USA), Remote Global", table_text),
-            Paragraph("Deploys smartphone crash detection to 60M+ families worldwide. Continuously recruits for telematics algorithm optimization.", table_text)
-        ],
-        [
-            Paragraph("<b>Ola Electric & Ather Energy</b><br/>(Connected Vehicle Telematics)", table_text),
-            Paragraph("Bangalore (India)", table_text),
-            Paragraph("Indian EV OEMs developing intelligent digital instrument clusters. High demand for lean-angle crash detection and automatic SOS.", table_text)
-        ],
-    ]
-    t_comp = Table(companies, colWidths=[130, 110, 264])
-    t_comp.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E293B')),
-        ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#CBD5E1')),
-        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-    ]))
-    story.append(t_comp)
+    story.append(t_stack)
     story.append(Spacer(1, 10))
 
     # =========================================================================
-    # 9. FUNDED FELLOWSHIPS & APPLICATION PATHWAYS
+    # 7. RESEARCH ROADMAP: WHERE FUNDING / LAB COLLABORATION WILL HELP
     # =========================================================================
-    story.append(Paragraph("9. Funded Global Fellowship Programs & Application Strategy", h1_style))
+    story.append(Paragraph("7. Research Roadmap: Objectives for Lab Collaboration", h1_style))
     story.append(Paragraph(
-        "Applicants from India can leverage institutional funding grants to support their research stay at partner universities:",
+        "While ResQRoute AI 2.0 demonstrates real-time client-side crash inference on commodity smartphones, transitioning to an automotive-grade certified safety standard requires research laboratory infrastructure. An academic research internship or industrial grant will enable the following milestones:",
         body_style
     ))
 
-    grants = [
-        ("DAAD WISE (Germany)", "Fully funded summer research internships for Indian students in German universities (TUM, RWTH Aachen, KIT). Stipend: ~934 EUR/month + travel allowance."),
-        ("Mitacs Globalink Research Internship (Canada)", "12-week funded research stay at top Canadian institutions (Toronto, Waterloo, McGill) in transportation AI and mobile telematics."),
-        ("Charpak Global Internship (France)", "Funded internship scholarship across French engineering laboratories (INRIA, Sorbonne, CentraleSupélec) covering living allowances."),
-        ("Viterbi-India Program (USC) & SN Bose Scholars (USA)", "Prestigious summer research fellowships supporting top Indian engineering undergraduates at premier US research institutions."),
-        ("Corporate R&D Internships (CMT, Zendrive, Bosch)", "Directly sponsored corporate internships offering industry-standard competitive compensation, housing stipends, and patent co-authorship."),
-    ]
-    for name, desc in grants:
-        story.append(Paragraph(f"• <b>{name}:</b> {desc}", bullet_style))
-        
+    story.append(Paragraph("<b>A. Physical Crash-Sled and Instrumented Vehicle Testing:</b>", h2_style))
+    story.append(Paragraph(
+        "Current validation relies on recorded VZCrash telemetry and simulated software kinematic pulses. Collaborating with an automotive laboratory will enable mounting smartphones across diverse cabin configurations (dashboard suction mounts, cup holders, magnetic air-vent brackets, rider jacket pockets) during physical crash-sled impacts, validating structural dampening and vibration transfer.",
+        body_style
+    ))
+
+    story.append(Paragraph("<b>B. CAN-Bus & OBD-II Bluetooth Sensor Fusion:</b>", h2_style))
+    story.append(Paragraph(
+        "Fusing smartphone IMU and acoustic signals with vehicle CAN-bus parameters (wheel-speed encoders, airbag deployment trigger squibs, brake pedal pressure, seatbelt pre-tensioner status) via Bluetooth Low Energy (BLE) dongles to achieve five-nines (99.999%) detection precision.",
+        body_style
+    ))
+
+    story.append(Paragraph("<b>C. CARLA 3D Digital Twin of Indian Unstructured Traffic:</b>", h2_style))
+    story.append(Paragraph(
+        "Building an open-source CARLA digital twin modeling Indian traffic conditions: non-lane vehicle filtering, auto-rickshaws, stray hazards, and heterogeneous speed variance, establishing the first benchmark suite for two-wheeler accident AI.",
+        body_style
+    ))
+
+    story.append(Paragraph("<b>D. Direct Dispatch API Integration with National ERSS-112:</b>", h2_style))
+    story.append(Paragraph(
+        "Establishing authenticated, encrypted dispatch handshakes with municipal Emergency Response Support Systems (Dial 112 in India, 911 in North America, 112 in Europe), feeding live victim location, impact severity, and pre-crash telemetry directly onto operator CAD terminals.",
+        body_style
+    ))
     story.append(Spacer(1, 8))
 
     # =========================================================================
-    # 10. CONCLUSION & CONTACT
+    # 8. CONCLUSION & PROJECT DETAILS
     # =========================================================================
-    story.append(Paragraph("10. Conclusion & Call for Collaboration", h1_style))
+    story.append(Paragraph("8. Conclusion & Availability for Research", h1_style))
     story.append(Paragraph(
-        "<b>ResQRoute AI 2.0</b> represents a proven, high-performance paradigm for democratic vehicle safety. By delivering millisecond collision detection, acoustic crunch verification, and tamper-proof cloud forensics directly on commodity smartphones, it eliminates the need for expensive proprietary hardware and bridges the safety gap for millions of vulnerable road users worldwide.",
+        "<b>ResQRoute AI 2.0</b> demonstrates a feasible, democratic paradigm for universal road traffic safety. By implementing millisecond crash detection, acoustic validation, dynamic driver personalization, and tamper-proof forensics directly on standard smartphones, it eliminates the requirement for expensive proprietary telematics hardware.",
         body_style
     ))
     story.append(Paragraph(
-        "<b>We invite academic laboratories, automotive researchers, and telematics industry leaders to partner with us for research fellowships, crash-sled validation, and pilot deployments.</b>",
+        "As a 2nd year Data Science & Engineering undergraduate at IISER Bhopal, I am actively seeking research internship opportunities and academic collaborations to advance physical crash-sled validation, edge sensor fusion, and large-scale deployment.",
         body_style
     ))
     
-    story.append(Spacer(1, 10))
-    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#CBD5E1"), spaceAfter=8))
+    story.append(Spacer(1, 8))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#CBD5E1"), spaceAfter=6))
     
     footer_table_data = [
         [
-            Paragraph("<b>Repository:</b> <font color='#2563EB'><u>github.com/itssouradip34/ResQRoute-2.A</u></font><br/><b>Primary Tech Stack:</b> React Native, Expo Sensors, PyTorch, Supabase, Overpass API", callout_style),
-            Paragraph("<b>Direct Contact:</b> Souradip Ghosh<br/><b>Email:</b> <font color='#2563EB'><u>itssouradip@gmail.com</u></font><br/><b>Location:</b> New Delhi, India", callout_style)
+            Paragraph("<b>Repository:</b> <font color='#2563EB'><u>github.com/itssouradip34/ResQRoute-2.A</u></font><br/><b>Technology Stack:</b> React Native, Expo Sensors, PyTorch, Supabase, Overpass API", callout_style),
+            Paragraph("<b>Author:</b> Souradip Patra<br/><b>Department:</b> Data Science & Engineering, IISER Bhopal<br/><b>Email:</b> <font color='#2563EB'><u>souradip25@gmail.com</u></font>", callout_style)
         ]
     ]
     t_foot = Table(footer_table_data, colWidths=[270, 234])
@@ -663,7 +581,11 @@ def build_pdf():
 
     # Build Document
     doc.build(story, canvasmaker=NumberedCanvas)
-    print(f"PDF successfully built at: {PDF_OUTPUT_PATH}")
+    
+    # Also copy to root for instant access
+    import shutil
+    shutil.copyfile(PDF_OUTPUT_PATH, ROOT_PDF_PATH)
+    print(f"PDF successfully built at:\n - {PDF_OUTPUT_PATH}\n - {ROOT_PDF_PATH}")
 
 if __name__ == "__main__":
     build_pdf()
