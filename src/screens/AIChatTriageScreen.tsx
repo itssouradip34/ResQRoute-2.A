@@ -13,10 +13,13 @@ import {
 import {
   AlertCircle,
   Bot,
+  Cpu,
   Flame,
   HelpCircle,
   Lightbulb,
   Send,
+  ShieldCheck,
+  Sparkles,
   User,
 } from 'lucide-react-native';
 import { AIChatMessage, SituationType } from '../types';
@@ -168,20 +171,84 @@ export const AIChatTriageScreen: React.FC<AIChatTriageScreenProps> = ({
                 isBot ? styles.bubbleBot : styles.bubbleUser,
               ]}
             >
-              {/* Sender Badge */}
+              {/* Sender Badge & Engine Source */}
               <View style={styles.bubbleHeader}>
-                {isBot ? (
-                  <Bot size={16} color="#58A6FF" />
-                ) : (
-                  <User size={16} color="#3FB950" />
+                <View style={styles.senderInfoRow}>
+                  {isBot ? (
+                    <Bot size={16} color="#58A6FF" />
+                  ) : (
+                    <User size={16} color="#3FB950" />
+                  )}
+                  <Text style={styles.bubbleSenderName}>
+                    {isBot ? 'ResQRoute AI' : 'You'}
+                  </Text>
+                </View>
+
+                {/* Model Engine Tag */}
+                {isBot && item.triageSource && (
+                  <View
+                    style={[
+                      styles.engineBadge,
+                      item.triageSource === 'gemini_online'
+                        ? styles.engineBadgeOnline
+                        : styles.engineBadgeOffline,
+                    ]}
+                  >
+                    {item.triageSource === 'gemini_online' ? (
+                      <>
+                        <Sparkles size={11} color="#A371F7" />
+                        <Text style={styles.engineBadgeTextOnline}>Gemini 2.0 Online</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Cpu size={11} color="#3FB950" />
+                        <Text style={styles.engineBadgeTextOffline}>Neural Offline</Text>
+                      </>
+                    )}
+                  </View>
                 )}
-                <Text style={styles.bubbleSenderName}>
-                  {isBot ? 'ResQRoute AI' : 'You'}
-                </Text>
+
+                {/* Urgency Badge */}
+                {isBot && item.urgencyLevel && (
+                  <View
+                    style={[
+                      styles.urgencyBadge,
+                      item.urgencyLevel === 'critical'
+                        ? styles.urgencyCritical
+                        : item.urgencyLevel === 'high'
+                        ? styles.urgencyHigh
+                        : styles.urgencyModerate,
+                    ]}
+                  >
+                    <Text style={styles.urgencyText}>
+                      {item.urgencyLevel.toUpperCase()}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Message Text */}
               <Text style={styles.bubbleText}>{item.text}</Text>
+
+              {/* First-Response Lifesaving Guidance Steps */}
+              {item.firstResponseGuidance && item.firstResponseGuidance.length > 0 && (
+                <View style={styles.guidanceBox}>
+                  <View style={styles.guidanceHeader}>
+                    <ShieldCheck size={14} color="#3FB950" />
+                    <Text style={styles.guidanceTitle}>
+                      {settings.language === 'hi'
+                        ? '🚨 तत्काल जीवन रक्षक कदम (First Response Steps):'
+                        : '🚨 Immediate Lifesaving First Response Steps:'}
+                    </Text>
+                  </View>
+                  {item.firstResponseGuidance.map((step: string, sIdx: number) => (
+                    <View key={sIdx} style={styles.guidanceStepRow}>
+                      <Text style={styles.guidanceStepBullet}>•</Text>
+                      <Text style={styles.guidanceStepText}>{step}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
 
               {/* Follow-up / Clarifying Questions Chips */}
               {item.followUpOptions && item.followUpOptions.length > 0 && (
@@ -334,8 +401,100 @@ const styles = StyleSheet.create({
   bubbleHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+  },
+  senderInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  engineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  engineBadgeOnline: {
+    backgroundColor: 'rgba(163, 113, 247, 0.15)',
+    borderColor: 'rgba(163, 113, 247, 0.4)',
+  },
+  engineBadgeOffline: {
+    backgroundColor: 'rgba(63, 185, 80, 0.15)',
+    borderColor: 'rgba(63, 185, 80, 0.4)',
+  },
+  engineBadgeTextOnline: {
+    color: '#D2A8FF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  engineBadgeTextOffline: {
+    color: '#7EE787',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  urgencyBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  urgencyCritical: {
+    backgroundColor: 'rgba(248, 81, 73, 0.25)',
+  },
+  urgencyHigh: {
+    backgroundColor: 'rgba(255, 165, 0, 0.25)',
+  },
+  urgencyModerate: {
+    backgroundColor: 'rgba(210, 153, 34, 0.25)',
+  },
+  urgencyText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  guidanceBox: {
+    backgroundColor: 'rgba(63, 185, 80, 0.08)',
+    borderColor: 'rgba(63, 185, 80, 0.3)',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  guidanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
     marginBottom: 6,
+  },
+  guidanceTitle: {
+    color: '#7EE787',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  guidanceStepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginBottom: 4,
+  },
+  guidanceStepBullet: {
+    color: '#3FB950',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  guidanceStepText: {
+    color: '#E6EDF3',
+    fontSize: 12,
+    lineHeight: 18,
+    flex: 1,
   },
   bubbleSenderName: {
     color: '#8B949E',

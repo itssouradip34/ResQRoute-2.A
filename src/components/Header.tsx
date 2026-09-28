@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Activity, Globe2, ShieldCheck, Wifi, WifiOff } from 'lucide-react-native';
+import { Activity, Globe2, ShieldCheck, User, Wifi, WifiOff } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   title?: string;
@@ -13,6 +14,7 @@ export const Header: React.FC<HeaderProps> = ({
   subtitle,
 }) => {
   const { settings, isOnline, toggleLanguage } = useSettings();
+  const { user, isAuthenticated, openAuthModal } = useAuth();
 
   return (
     <View style={styles.header}>
@@ -40,6 +42,21 @@ export const Header: React.FC<HeaderProps> = ({
       </View>
 
       <View style={styles.rightActions}>
+        {/* User Auth Profile Button */}
+        <TouchableOpacity
+          style={[styles.authButton, isAuthenticated && styles.authButtonActive]}
+          activeOpacity={0.75}
+          onPress={openAuthModal}
+        >
+          <User size={13} color={isAuthenticated ? '#7EE787' : '#8B949E'} />
+          <Text
+            style={[styles.authButtonText, isAuthenticated && styles.authButtonTextActive]}
+            numberOfLines={1}
+          >
+            {isAuthenticated ? user?.fullName?.split(' ')[0] || 'Profile' : 'Sign In'}
+          </Text>
+        </TouchableOpacity>
+
         {/* Network State Badge */}
         <View
           style={[
@@ -48,9 +65,9 @@ export const Header: React.FC<HeaderProps> = ({
           ]}
         >
           {isOnline ? (
-            <Wifi size={14} color="#3FB950" />
+            <Wifi size={13} color="#3FB950" />
           ) : (
-            <WifiOff size={14} color="#FFA500" />
+            <WifiOff size={13} color="#FFA500" />
           )}
           <Text
             style={[
@@ -58,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
               isOnline ? styles.textOnline : styles.textOffline,
             ]}
           >
-            {isOnline ? 'Online' : 'Offline Mode'}
+            {isOnline ? 'Online' : 'Offline'}
           </Text>
         </View>
 
@@ -68,7 +85,7 @@ export const Header: React.FC<HeaderProps> = ({
           activeOpacity={0.7}
           onPress={toggleLanguage}
         >
-          <Globe2 size={14} color="#58A6FF" />
+          <Globe2 size={13} color="#58A6FF" />
           <Text style={styles.langText}>
             {settings.language === 'en' ? 'हिन्दी' : 'ENG'}
           </Text>
@@ -132,7 +149,31 @@ const styles = StyleSheet.create({
   rightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+  },
+  authButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#161B22',
+    borderColor: '#30363D',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    maxWidth: 90,
+  },
+  authButtonActive: {
+    backgroundColor: 'rgba(63, 185, 80, 0.12)',
+    borderColor: 'rgba(63, 185, 80, 0.4)',
+  },
+  authButtonText: {
+    color: '#8B949E',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  authButtonTextActive: {
+    color: '#7EE787',
   },
   networkBadge: {
     flexDirection: 'row',

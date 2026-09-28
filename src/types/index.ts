@@ -53,7 +53,14 @@ export interface SensorSnapshot {
 }
 
 export interface AnomalyDetectionResult {
-  eventType: 'POSSIBLE_ACCIDENT' | 'POSSIBLE_BREAKDOWN' | 'NO_ANOMALY';
+  eventType:
+    | 'POSSIBLE_ACCIDENT'
+    | 'POSSIBLE_BREAKDOWN'
+    | 'OBSTACLE_FACED'
+    | 'HEAVY_BUMP'
+    | 'PHONE_SHAKE'
+    | 'ACOUSTIC_CRASH'
+    | 'NO_ANOMALY';
   confidenceScore: number; // 0 to 1
   anomalyScore: number;
   gyroTurbulence: number;
@@ -135,6 +142,9 @@ export interface AIChatMessage {
   text: string;
   timestamp: number;
   categorySuggestion?: ServiceCategory;
+  urgencyLevel?: UrgencyLevel;
+  triageSource?: 'gemini_online' | 'neural_offline';
+  firstResponseGuidance?: string[];
   extractedFacts?: {
     injuries?: boolean;
     vehicleType?: string;
@@ -146,6 +156,22 @@ export interface AIChatMessage {
   recommendedServices?: EmergencyService[];
 }
 
+export type VehicleType = 'two_wheeler' | 'four_wheeler' | 'commercial';
+export type ExperienceLevel = 'novice' | 'intermediate' | 'expert';
+export type DrivingStyle = 'cautious' | 'standard' | 'highway_commuter';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  fullName: string;
+  phoneNumber?: string;
+  vehicleType: VehicleType;
+  experienceLevel: ExperienceLevel;
+  drivingStyle: DrivingStyle;
+  totalTripsMonitored?: number;
+  createdAt: string;
+}
+
 export interface UserSettings {
   defaultRegion: string;
   sensorSensitivity: SensitivityLevel;
@@ -153,8 +179,15 @@ export interface UserSettings {
   enableAudioAlarm: boolean;
   enableVibration: boolean;
   enableBackgroundMonitoring: boolean;
+  enableAcousticMonitoring: boolean;
+  acousticConsentGranted: boolean;
   offlineDataDownloaded: boolean;
   locationConsentGranted: boolean;
   sensorConsentGranted: boolean;
   language: 'en' | 'hi';
+  vehicleType: VehicleType;
+  experienceLevel: ExperienceLevel;
+  drivingStyle: DrivingStyle;
+  googleMapsApiKey?: string;
+  geminiApiKey?: string;
 }

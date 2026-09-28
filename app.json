@@ -14,7 +14,8 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "ResQRoute-A needs your location to detect emergencies and find nearest hospitals, police, ambulances, and towing services.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "ResQRoute-A uses background location to monitor speed-drop and provide live tracking to trusted contacts during an active SOS.",
-        "NSMotionUsageDescription": "ResQRoute-A analyzes gyroscope and accelerometer data to automatically detect potential vehicle accidents or falls."
+        "NSMotionUsageDescription": "ResQRoute-A analyzes gyroscope and accelerometer data to automatically detect potential vehicle accidents or falls.",
+        "NSMicrophoneUsageDescription": "ResQRoute-A analyzes ambient acoustic signatures on-device to detect vehicle collisions with user consent."
       }
     },
     "android": {
@@ -28,7 +29,8 @@
         "ACCESS_BACKGROUND_LOCATION",
         "HIGH_SAMPLING_RATE_SENSORS",
         "VIBRATE",
-        "SEND_SMS"
+        "SEND_SMS",
+        "RECORD_AUDIO"
       ]
     },
     "web": {

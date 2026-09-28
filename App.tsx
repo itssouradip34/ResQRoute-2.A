@@ -12,6 +12,7 @@ import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import {
   Activity,
   Bot,
+  FileText,
   Flame,
   Home,
   ListOrdered,
@@ -21,19 +22,22 @@ import {
 } from 'lucide-react-native';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
 import { EmergencyProvider, useEmergency } from './src/context/EmergencyContext';
+import { AuthProvider } from './src/context/AuthContext';
 import { Header } from './src/components/Header';
 import { CountdownModal } from './src/components/CountdownModal';
 import { ManualSOSButton } from './src/components/ManualSOSButton';
 import { AudioAlertPlayer } from './src/components/AudioAlertPlayer';
+import { AuthModal } from './src/components/AuthModal';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ServicesListScreen } from './src/screens/ServicesListScreen';
 import { AIChatTriageScreen } from './src/screens/AIChatTriageScreen';
 import { SensorLabScreen } from './src/screens/SensorLabScreen';
 import { TrustedContactsScreen } from './src/screens/TrustedContactsScreen';
+import { ForensicReportScreen } from './src/screens/ForensicReportScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { SituationType } from './src/types';
 
-type TabType = 'home' | 'services' | 'chat' | 'sensor_lab' | 'contacts' | 'settings';
+type TabType = 'home' | 'services' | 'chat' | 'forensics' | 'sensor_lab' | 'contacts' | 'settings';
 
 const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('home');
@@ -70,6 +74,7 @@ const MainApp: React.FC = () => {
     { id: 'home', label_en: 'Rescue', label_hi: 'रेस्क्यू', icon: Home },
     { id: 'services', label_en: 'Services', label_hi: 'सेवाएं', icon: ListOrdered },
     { id: 'chat', label_en: 'AI Triage', label_hi: 'AI चैट', icon: Bot },
+    { id: 'forensics', label_en: 'Forensics', label_hi: 'फॉरेंसिक', icon: FileText },
     { id: 'sensor_lab', label_en: 'Sensor Lab', label_hi: 'सेंसर लैब', icon: Activity },
     { id: 'contacts', label_en: 'Contacts', label_hi: 'संपर्क', icon: Users },
     { id: 'settings', label_en: 'Settings', label_hi: 'सेटिंग्स', icon: Settings },
@@ -88,6 +93,8 @@ const MainApp: React.FC = () => {
         return <ServicesListScreen />;
       case 'chat':
         return <AIChatTriageScreen initialSituation={initialChatSituation} />;
+      case 'forensics':
+        return <ForensicReportScreen />;
       case 'sensor_lab':
         return <SensorLabScreen />;
       case 'contacts':
@@ -113,6 +120,8 @@ const MainApp: React.FC = () => {
             ? 'Nearby Emergency Directory'
             : activeTab === 'chat'
             ? 'AI Triage & Guidance'
+            : activeTab === 'forensics'
+            ? 'Post-Accident Police Dossier'
             : activeTab === 'sensor_lab'
             ? 'Kinematic Sensor Lab'
             : activeTab === 'contacts'
@@ -169,9 +178,12 @@ const MainApp: React.FC = () => {
 export default function App() {
   return (
     <SettingsProvider>
-      <EmergencyProvider>
-        <MainApp />
-      </EmergencyProvider>
+      <AuthProvider>
+        <EmergencyProvider>
+          <MainApp />
+          <AuthModal />
+        </EmergencyProvider>
+      </AuthProvider>
     </SettingsProvider>
   );
 }

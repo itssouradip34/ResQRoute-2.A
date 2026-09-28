@@ -1,6 +1,7 @@
 import { Accelerometer, Gyroscope, DeviceMotion } from 'expo-sensors';
 import * as Location from 'expo-location';
 import { UserLocation } from '../../types';
+import { GeocodingService } from '../location/GeocodingService';
 
 export interface SensorFrame {
   timestamp: number;
@@ -69,6 +70,7 @@ class SensorHubService {
               initialLoc.coords.longitude
             ),
           };
+          this.resolveAddressForCurrentLocation();
         }
 
         this.locationSubscription = await Location.watchPositionAsync(
@@ -80,7 +82,10 @@ class SensorHubService {
           (loc) => {
             const speedKmH = Math.max(0, (loc.coords.speed || 0) * 3.6);
             this.currentSpeedKmH = speedKmH;
+            const prevLat = this.currentLocation.latitude;
+            const prevLng = this.currentLocation.longitude;
             this.currentLocation = {
+              ...this.currentLocation,
               latitude: loc.coords.latitude,
               longitude: loc.coords.longitude,
               speed: speedKmH,
@@ -91,6 +96,15 @@ class SensorHubService {
                 loc.coords.longitude
               ),
             };
+
+            // Reverse geocode if moved more than ~25 meters
+            const distKm = Math.sqrt(
+              Math.pow(loc.coords.latitude - prevLat, 2) +
+                Math.pow(loc.coords.longitude - prevLng, 2)
+            ) * 111;
+            if (distKm > 0.025 || !this.currentLocation.addressName) {
+              this.resolveAddressForCurrentLocation();
+            }
           }
         );
       }
@@ -216,6 +230,23 @@ class SensorHubService {
     this.currentGyro = { x: 0, y: 0, z: 0, magnitude: 0 };
     this.currentSpeedKmH = 0;
     this.emitFrame();
+  }
+
+  public async resolveAddressForCurrentLocation(): Promise<string> {
+    try {
+      const geo = await GeocodingService.reverseGeocode(
+        this.currentLocation.latitude,
+        this.currentLocation.longitude
+      );
+      this.currentLocation.addressName = geo.formattedAddress;
+      return geo.formattedAddress;
+    } catch {
+      return this.currentLocation.addressName || 'Current Location';
+    }
+  }
+
+  public async refreshAddress(): Promise<string> {
+    return this.resolveAddressForCurrentLocation();
   }
 
   public detectRegionFromCoords(lat: number, lng: number): string {

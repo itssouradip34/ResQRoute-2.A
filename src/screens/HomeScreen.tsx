@@ -22,6 +22,8 @@ import {
   PhoneCall,
   Shield,
   Wrench,
+  RotateCw,
+  ShieldCheck,
 } from 'lucide-react-native';
 import { useEmergency } from '../context/EmergencyContext';
 import { useSettings } from '../context/SettingsContext';
@@ -29,6 +31,7 @@ import { SituationType } from '../types';
 import { NATIONAL_HELPLINES } from '../data/indiaEmergencyServices';
 import { EmergencyActiveBanner } from '../components/EmergencyActiveBanner';
 import { TEST_MODE, TEST_HELPLINE_OVERRIDE, TEST_PHONE_NUMBERS } from '../config/testMode';
+import { SensorHub } from '../services/sensor/SensorHub';
 
 interface HomeScreenProps {
   onNavigateToServices: () => void;
@@ -135,10 +138,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               {settings.language === 'hi' ? 'वर्तमान स्थान' : 'CURRENT GPS LOCATION'}
             </Text>
           </View>
-          <View style={styles.regionBadge}>
-            <Text style={styles.regionBadgeText}>
-              {userLocation.regionCode || 'IN-DL'}
-            </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity
+              style={styles.refreshGeoBtn}
+              activeOpacity={0.7}
+              onPress={async () => {
+                const refreshed = await SensorHub.refreshAddress();
+                setCustomAddress(refreshed);
+              }}
+            >
+              <RotateCw size={13} color="#58A6FF" />
+            </TouchableOpacity>
+            <View style={styles.regionBadge}>
+              <Text style={styles.regionBadgeText}>
+                {userLocation.regionCode || 'IN-DL'}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -164,11 +179,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             onPress={() => setIsEditingLocation(true)}
             activeOpacity={0.7}
           >
-            <MapPin size={16} color="#8B949E" style={{ marginTop: 2 }} />
+            <MapPin size={16} color="#3FB950" style={{ marginTop: 2 }} />
             <Text style={styles.locationAddress} numberOfLines={2}>
               {customAddress ||
                 userLocation.addressName ||
-                `GPS: ${userLocation.latitude.toFixed(4)}, ${userLocation.longitude.toFixed(4)}`}
+                `GPS: ${userLocation.latitude.toFixed(5)}, ${userLocation.longitude.toFixed(5)}`}
             </Text>
             <Edit3 size={14} color="#58A6FF" />
           </TouchableOpacity>

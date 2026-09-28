@@ -12,6 +12,8 @@ import {
 } from '../../types';
 import { SensorHub } from '../sensor/SensorHub';
 import { AnomalyDetector } from '../sensor/AnomalyDetector';
+import { AudioCrashDetector } from '../audio/AudioCrashDetector';
+import { ForensicBlackboxService } from '../forensics/ForensicBlackboxService';
 import { OfflineFallbackService } from './OfflineFallbackService';
 import { ServiceRanker } from '../directory/ServiceRanker';
 import { SupabaseDataService } from '../supabase/supabaseClient';
@@ -64,6 +66,24 @@ class EmergencyManagerClass {
         this.triggerAutoDetection('accident', anomaly.confidenceScore, anomaly.snapshot);
       } else if (anomaly.eventType === 'POSSIBLE_BREAKDOWN') {
         this.triggerAutoDetection('breakdown', anomaly.confidenceScore, anomaly.snapshot);
+      } else if (anomaly.eventType === 'OBSTACLE_FACED') {
+        this.triggerAutoDetection('breakdown', anomaly.confidenceScore, anomaly.snapshot);
+      }
+    });
+
+    AudioCrashDetector.subscribe((result) => {
+      if (this.status !== 'idle') return;
+      if (result.isCrashEvent && result.requiresSOS) {
+        const dummySnapshot: SensorSnapshot = {
+          accel_peak: 0,
+          gyro_peak: 0,
+          speed_before: SensorHub.getCurrentLocation().speed || 0,
+          speed_after: 0,
+          raw_anomaly_score: result.confidenceScore * 10,
+          threshold_used: 7.0,
+          captured_at: new Date().toISOString(),
+        };
+        this.triggerAutoDetection('accident', result.confidenceScore, dummySnapshot);
       }
     });
   }
@@ -302,7 +322,17 @@ class EmergencyManagerClass {
     if (!this.currentIncident) return;
     const location = SensorHub.getCurrentLocation();
 
-    // 1. Rank nearby relevant emergency services
+    // 1. Capture & Sync Forensic Blackbox Flight Recorder Packet to Supabase Cloud
+    if (this.currentIncident.sensor_snapshot) {
+      ForensicBlackboxService.captureAndSyncPacket(
+        this.currentIncident.id,
+        this.currentIncident.sensor_snapshot,
+        location,
+        this.currentIncident.user_id
+      ).catch((err) => console.warn('Forensic sync warning:', err));
+    }
+
+    // 2. Rank nearby relevant emergency services
     this.rankedServices = ServiceRanker.rankServices({
       userLocation: location,
       situationType: this.currentIncident.situation_type,

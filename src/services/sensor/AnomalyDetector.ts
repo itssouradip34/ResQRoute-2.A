@@ -3,7 +3,15 @@ import {
   SensitivityLevel,
   SensorSnapshot,
 } from '../../types';
-import { SensorFrame, SensorHub } from './SensorHub';
+import { SensorFrame } from './SensorHub';
+import {
+  NeuralKinematicsClassifier,
+  KinematicPrediction,
+} from './NeuralKinematicsClassifier';
+import {
+  PersonalizedThresholdAdapter,
+  DriverProfile,
+} from './PersonalizedThresholdAdapter';
 
 export interface DetectionThresholds {
   crashAnomalyThreshold: number;
@@ -12,7 +20,11 @@ export interface DetectionThresholds {
   accelJerkCrashThreshold: number;
   speedDropCrashThreshold: number;
   speedDropBreakdownThreshold: number;
-  potholeJerkMax: number; // Jerk below which single vertical spikes are treated as potholes
+  obstacleJerkThreshold: number;
+  obstacleSpeedDropThreshold: number;
+  bumpGyroMin: number;
+  bumpSpeedDropMax: number;
+  potholeJerkMax: number;
 }
 
 const SENSITIVITY_PROFILES: Record<SensitivityLevel, DetectionThresholds> = {
@@ -24,16 +36,24 @@ const SENSITIVITY_PROFILES: Record<SensitivityLevel, DetectionThresholds> = {
     accelJerkCrashThreshold: 30.0,
     speedDropCrashThreshold: 40.0,
     speedDropBreakdownThreshold: 25.0,
+    obstacleJerkThreshold: 24.0,
+    obstacleSpeedDropThreshold: 30.0,
+    bumpGyroMin: 3.5,
+    bumpSpeedDropMax: 6.0,
     potholeJerkMax: 18.0,
   },
   // Medium Sensitivity: Recommended balance for urban & highway driving in India
   medium: {
     crashAnomalyThreshold: 5.5,
     mechanicalThreshold: 2.8,
-    gyroCrashThreshold: 4.8,
+    gyroCrashThreshold: 4.5,
     accelJerkCrashThreshold: 22.0,
     speedDropCrashThreshold: 28.0,
     speedDropBreakdownThreshold: 18.0,
+    obstacleJerkThreshold: 18.0,
+    obstacleSpeedDropThreshold: 22.0,
+    bumpGyroMin: 2.8,
+    bumpSpeedDropMax: 5.0,
     potholeJerkMax: 14.0,
   },
   // High Sensitivity: Sensitive to low-speed bike skids, minor collisions, gentle rollovers
@@ -44,13 +64,18 @@ const SENSITIVITY_PROFILES: Record<SensitivityLevel, DetectionThresholds> = {
     accelJerkCrashThreshold: 14.0,
     speedDropCrashThreshold: 18.0,
     speedDropBreakdownThreshold: 12.0,
+    obstacleJerkThreshold: 14.0,
+    obstacleSpeedDropThreshold: 15.0,
+    bumpGyroMin: 2.2,
+    bumpSpeedDropMax: 4.0,
     potholeJerkMax: 9.0,
   },
 };
 
 class AnomalyDetectorService {
   private sensitivity: SensitivityLevel = 'medium';
-  private cooldownUntil = 0; // Prevent spamming triggers within 10s of a previous event
+  private cooldownUntil = 0; // Prevent spamming triggers within cooldown window
+  private driverProfile?: DriverProfile;
 
   public setSensitivity(level: SensitivityLevel) {
     this.sensitivity = level;
@@ -60,8 +85,20 @@ class AnomalyDetectorService {
     return this.sensitivity;
   }
 
+  public setDriverProfile(profile: DriverProfile) {
+    this.driverProfile = profile;
+  }
+
+  public getDriverProfile(): DriverProfile | undefined {
+    return this.driverProfile;
+  }
+
   public getThresholds(): DetectionThresholds {
-    return SENSITIVITY_PROFILES[this.sensitivity];
+    const base = SENSITIVITY_PROFILES[this.sensitivity];
+    if (this.driverProfile) {
+      return PersonalizedThresholdAdapter.adapt(base, this.driverProfile);
+    }
+    return base;
   }
 
   public resetCooldown() {
@@ -69,7 +106,10 @@ class AnomalyDetectorService {
   }
 
   /**
-   * Evaluate rolling sensor frames for accident/breakdown anomalies
+   * Evaluate rolling sensor frames using VZCrash neural network weights & 3 real-life kinematic rules:
+   *   Rule A: Sudden drop in accelerometer and no gyro intensity break -> Obstacle faced
+   *   Rule B: Accelerometer no intensity changes but gyro change obvious -> Heavy bump (suppressed)
+   *   Rule C: Both intensity change -> Accident
    */
   public evaluateFrame(
     currentFrame: SensorFrame,
@@ -93,31 +133,21 @@ class AnomalyDetectorService {
     const speedAfter = currentFrame.speedKmH;
     const speedDropDelta = Math.max(0, speedBefore - speedAfter);
 
-    // 4. Calculate Weighted Anomaly Score (PRD Formula)
-    // w1=0.45 (gyro turbulence), w2=0.35 (accel jerk scaled), w3=0.20 (speed drop scaled)
-    const normalizedGyro = gyroTurbulence; // typical range 0 to 10
-    const normalizedJerk = accelJerk / 5.0; // scale jerk to ~0 to 10
-    const normalizedSpeedDrop = speedDropDelta / 10.0; // scale drop to ~0 to 10
-
-    const w1 = 0.45;
-    const w2 = 0.35;
-    const w3 = 0.2;
-
-    const anomalyScore = Number(
-      (
-        w1 * normalizedGyro +
-        w2 * normalizedJerk +
-        w3 * normalizedSpeedDrop
-      ).toFixed(2)
-    );
-
-    // Peak metrics for snapshot
+    // 4. Calculate Peak Metrics for Snapshot
     let accelPeak = currentFrame.accel.magnitude;
     let gyroPeak = currentFrame.gyro.magnitude;
     history.forEach((f) => {
       if (f.accel.magnitude > accelPeak) accelPeak = f.accel.magnitude;
       if (f.gyro.magnitude > gyroPeak) gyroPeak = f.gyro.magnitude;
     });
+
+    // 5. Compute Weighted Anomaly Score
+    const normalizedGyro = gyroTurbulence;
+    const normalizedJerk = accelJerk / 5.0;
+    const normalizedSpeedDrop = speedDropDelta / 10.0;
+    const anomalyScore = Number(
+      (0.45 * normalizedGyro + 0.35 * normalizedJerk + 0.20 * normalizedSpeedDrop).toFixed(2)
+    );
 
     const snapshot: SensorSnapshot = {
       accel_peak: Number(accelPeak.toFixed(2)),
@@ -128,6 +158,14 @@ class AnomalyDetectorService {
       threshold_used: thresholds.crashAnomalyThreshold,
       captured_at: new Date().toISOString(),
     };
+
+    // Forward pass via NeuralKinematicsClassifier (trained on VZCrash dataset)
+    const neuralPrediction = NeuralKinematicsClassifier.predict({
+      accelPeakG: accelPeak,
+      accelJerk,
+      speedDropDeltaKmH: speedDropDelta,
+      gyroMagnitudeRadS: gyroTurbulence,
+    });
 
     // Check Cooldown
     if (now < this.cooldownUntil) {
@@ -144,52 +182,50 @@ class AnomalyDetectorService {
     }
 
     // =========================================================================
-    // FALSE-POSITIVE FILTER: Pothole & Speed Breaker Suppression
-    // Sharp jerk on Z-axis with almost zero gyro turbulence and no speed drop
+    // STATIONARY HAND-SHAKE FILTER (Zero-Speed T=0 False Positive Guard)
+    // If phone is stationary (speed < 12 km/h before & after), shaking in hand
+    // generates high jerk & gyro rotation without vehicular momentum or speed drop.
     // =========================================================================
-    const isPotholePattern =
-      accelJerk > 0 &&
-      accelJerk <= thresholds.potholeJerkMax * 2 &&
-      gyroTurbulence < 1.2 &&
-      speedDropDelta < 5.0;
+    const isStationary = speedBefore < 12 && speedAfter < 12;
+    if (isStationary) {
+      const isHandShaking =
+        accelJerk > 12.0 || gyroTurbulence > 2.0 || currentFrame.accel.magnitude > 2.2;
 
-    if (isPotholePattern) {
-      return {
-        eventType: 'NO_ANOMALY',
-        confidenceScore: 0.1,
-        anomalyScore,
-        gyroTurbulence,
-        accelJerk,
-        speedDropDelta,
-        snapshot,
-        reasoning: 'Road surface irregularity (pothole/bump) suppressed',
-      };
+      if (isHandShaking) {
+        return {
+          eventType: 'PHONE_SHAKE',
+          confidenceScore: 0.05,
+          anomalyScore,
+          gyroTurbulence,
+          accelJerk,
+          speedDropDelta,
+          snapshot,
+          reasoning:
+            'Stationary hand movement / phone shake detected at 0 km/h. False-positive SOS suppressed.',
+        };
+      }
     }
 
     // =========================================================================
-    // BRANCH 1: POSSIBLE ACCIDENT (High Confidence Crash / Rollover / Fall)
-    // Condition A: High Gyro Turbulence + Deceleration
-    // Condition B: Massive Anomaly Score exceeding crash threshold
+    // RULE C: BOTH INTENSITY CHANGE -> ACCIDENT
+    // Sudden shock/jerk in accelerometer AND violent gyro tumble/rotation
     // =========================================================================
-    const isHighImpactCollision =
-      gyroTurbulence >= thresholds.gyroCrashThreshold &&
-      speedDropDelta >= thresholds.speedDropCrashThreshold;
+    const isBothIntensityCrash =
+      (accelJerk >= thresholds.accelJerkCrashThreshold ||
+        speedDropDelta >= thresholds.speedDropCrashThreshold ||
+        anomalyScore >= thresholds.crashAnomalyThreshold) &&
+      gyroTurbulence >= thresholds.gyroCrashThreshold;
 
     const isHighEnergyTumble =
-      gyroTurbulence >= thresholds.gyroCrashThreshold * 1.3;
+      gyroTurbulence >= thresholds.gyroCrashThreshold * 1.35;
 
-    const isAnomalyScoreCrash = anomalyScore >= thresholds.crashAnomalyThreshold;
-
-    if (isHighImpactCollision || isHighEnergyTumble || isAnomalyScoreCrash) {
+    if (isBothIntensityCrash || isHighEnergyTumble) {
+      this.cooldownUntil = now + 12000;
       const confidence = Math.min(
         0.98,
-        Math.max(
-          0.65,
-          anomalyScore / (thresholds.crashAnomalyThreshold * 1.4)
-        )
+        Math.max(0.70, (anomalyScore / thresholds.crashAnomalyThreshold) * 0.85)
       );
 
-      this.cooldownUntil = now + 12000; // 12s cooldown
       return {
         eventType: 'POSSIBLE_ACCIDENT',
         confidenceScore: Number(confidence.toFixed(2)),
@@ -199,36 +235,28 @@ class AnomalyDetectorService {
         speedDropDelta,
         snapshot,
         reasoning:
-          gyroTurbulence >= thresholds.gyroCrashThreshold
-            ? 'High angular rotation / vehicle tumble detected with deceleration'
-            : 'Combined kinematic impact force exceeded accident threshold',
+          'Rule C: Both accelerometer shock and violent gyro rotation changed simultaneously (High confidence accident)',
       };
     }
 
     // =========================================================================
-    // BRANCH 2: POSSIBLE BREAKDOWN (Tyre Puncture / Drag / Mechanical Event)
-    // Speed-drop pattern without violent gyro turbulence
+    // RULE A: SUDDEN DROP IN ACCELEROMETER AND NO GYRO BREAK -> OBSTACLE FACED
+    // Sudden drop in accelerometer (high jerk/deceleration) with speed drop and chassis level (no gyro tumble)
     // =========================================================================
-    const isSuddenSpeedDropWithoutTumble =
-      speedDropDelta >= thresholds.speedDropBreakdownThreshold &&
-      gyroTurbulence < thresholds.gyroCrashThreshold;
+    const isObstacleFaced =
+      accelJerk >= thresholds.obstacleJerkThreshold &&
+      speedDropDelta >= thresholds.obstacleSpeedDropThreshold &&
+      gyroTurbulence < thresholds.gyroCrashThreshold * 0.45;
 
-    const isMechanicalAnomaly =
-      anomalyScore >= thresholds.mechanicalThreshold &&
-      gyroTurbulence < thresholds.gyroCrashThreshold * 0.7;
-
-    if (isSuddenSpeedDropWithoutTumble || isMechanicalAnomaly) {
+    if (isObstacleFaced) {
+      this.cooldownUntil = now + 8000;
       const confidence = Math.min(
-        0.88,
-        Math.max(
-          0.5,
-          anomalyScore / (thresholds.mechanicalThreshold * 1.5)
-        )
+        0.94,
+        Math.max(0.65, speedDropDelta / thresholds.obstacleSpeedDropThreshold)
       );
 
-      this.cooldownUntil = now + 10000; // 10s cooldown
       return {
-        eventType: 'POSSIBLE_BREAKDOWN',
+        eventType: 'OBSTACLE_FACED',
         confidenceScore: Number(confidence.toFixed(2)),
         anomalyScore,
         gyroTurbulence,
@@ -236,11 +264,49 @@ class AnomalyDetectorService {
         speedDropDelta,
         snapshot,
         reasoning:
-          'Sharp deceleration / mechanical resistance detected without severe rollover',
+          'Rule A: Sudden drop in accelerometer with no gyro break (Obstacle faced / emergency braking)',
       };
     }
 
-    // No anomaly
+    // =========================================================================
+    // RULE B: ACCELEROMETER NO INTENSITY CHANGES BUT GYRO CHANGE OBVIOUS -> HEAVY BUMP
+    // Speed maintained with high angular pitch/roll or bump (suppressed from emergency SOS)
+    // =========================================================================
+    const isHeavyBump =
+      speedDropDelta <= thresholds.bumpSpeedDropMax &&
+      gyroTurbulence >= thresholds.bumpGyroMin &&
+      accelJerk < thresholds.accelJerkCrashThreshold;
+
+    if (isHeavyBump) {
+      return {
+        eventType: 'HEAVY_BUMP',
+        confidenceScore: 0.15,
+        anomalyScore,
+        gyroTurbulence,
+        accelJerk,
+        speedDropDelta,
+        snapshot,
+        reasoning:
+          'Rule B: Accelerometer steady with obvious gyro deflection (Heavy bump / speed breaker suppressed)',
+      };
+    }
+
+    // Fallback Mechanical Drag / Breakdown
+    if (speedDropDelta >= thresholds.speedDropBreakdownThreshold && gyroTurbulence < 1.5) {
+      this.cooldownUntil = now + 8000;
+      return {
+        eventType: 'POSSIBLE_BREAKDOWN',
+        confidenceScore: 0.72,
+        anomalyScore,
+        gyroTurbulence,
+        accelJerk,
+        speedDropDelta,
+        snapshot,
+        reasoning: 'Mechanical drag / tyre blowout deceleration detected',
+      };
+    }
+
+    // Default No Anomaly
     return {
       eventType: 'NO_ANOMALY',
       confidenceScore: 0,

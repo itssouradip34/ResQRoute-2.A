@@ -16,9 +16,13 @@ import {
   RotateCcw,
   Sliders,
   Zap,
+  Mic,
+  Volume2,
+  ShieldAlert,
 } from 'lucide-react-native';
 import { SensorFrame, SensorHub } from '../services/sensor/SensorHub';
 import { AnomalyDetector } from '../services/sensor/AnomalyDetector';
+import { AudioCrashDetector, AcousticDetectionResult } from '../services/audio/AudioCrashDetector';
 import { useEmergency } from '../context/EmergencyContext';
 import { useSettings } from '../context/SettingsContext';
 import { SensitivityLevel } from '../types';
@@ -37,6 +41,9 @@ export const SensorLabScreen: React.FC = () => {
   const [activeSimulationName, setActiveSimulationName] = useState<string | null>(
     null
   );
+  const [acousticResult, setAcousticResult] = useState<AcousticDetectionResult | null>(
+    null
+  );
 
   useEffect(() => {
     const unsub = SensorHub.subscribe((frame) => {
@@ -49,62 +56,80 @@ export const SensorLabScreen: React.FC = () => {
   const evaluation = AnomalyDetector.evaluateFrame(currentFrame, history);
   const thresholds = AnomalyDetector.getThresholds();
 
-  // Preset Simulation Scenarios
-  const runHighwayCrashSim = () => {
-    setActiveSimulationName('Highway High-Speed Collision');
-    // Frame 1: Cruising at 80 km/h
+  // ----------------------------------------------------
+  // REAL-LIFE KINEMATICS THRESHOLD SIMULATIONS
+  // ----------------------------------------------------
+
+  // Rule C: Both intensity change -> Accident
+  const runRuleCAccidentSim = () => {
+    setActiveSimulationName('Rule C: Severe Collision (Both Accel & Gyro)');
     SensorHub.injectSimulatedFrame(
       { x: 0.1, y: 0.2, z: 1.0, jerk: 2 },
+      { x: 0.1, y: 0.1, z: 0.1 },
+      85
+    );
+
+    setTimeout(() => {
+      SensorHub.injectSimulatedFrame(
+        { x: 6.2, y: -7.5, z: 9.8, jerk: 55 },
+        { x: 7.2, y: 8.9, z: 6.1 }, // Violent Gyro Tumble
+        0 // Crash to 0 km/h
+      );
+    }, 200);
+  };
+
+  // Rule A: Sudden drop in accelerometer and no gyro intensity break -> Obstacle faced
+  const runRuleAObstacleSim = () => {
+    setActiveSimulationName('Rule A: Obstacle Faced (Accel Drop, No Gyro Break)');
+    SensorHub.injectSimulatedFrame(
+      { x: 0.1, y: 0.2, z: 1.0, jerk: 1 },
       { x: 0.1, y: 0.1, z: 0.1 },
       80
     );
 
-    // Frame 2: Violent Impact (High jerk + High Gyro tumble + Drop to 0 km/h)
     setTimeout(() => {
       SensorHub.injectSimulatedFrame(
-        { x: 4.8, y: -6.2, z: 8.5, jerk: 45 },
-        { x: 6.2, y: 8.4, z: 5.1 }, // High angular velocity
-        0 // Speed drops sharply
+        { x: 0.5, y: -4.2, z: 1.8, jerk: 35 }, // Sharp deceleration jerk
+        { x: 0.2, y: 0.3, z: 0.2 }, // No gyro intensity break (< 1.8 rad/s)
+        12 // Speed drops by 68 km/h (Emergency braking / obstacle)
       );
     }, 200);
   };
 
-  const runPotholeSim = () => {
-    setActiveSimulationName('Rough Road / Pothole Jolt');
-    // Vertical jerk on Z axis, zero gyro tumble, speed steady at 45 km/h
+  // Rule B: Accelerometer no intensity changes but gyro change obvious -> Heavy bump
+  const runRuleBBumpSim = () => {
+    setActiveSimulationName('Rule B: Heavy Bump (Steady Accel, Gyro Change Obvious)');
+    // Steady speed 45 km/h, no sharp deceleration, but obvious chassis pitch/roll
     SensorHub.injectSimulatedFrame(
-      { x: 0.1, y: 0.2, z: 3.8, jerk: 22 },
-      { x: 0.2, y: 0.3, z: 0.1 }, // Low gyro
-      45 // No speed drop
+      { x: 0.2, y: 0.2, z: 2.8, jerk: 12 },
+      { x: 3.5, y: 4.2, z: 1.8 }, // Obvious gyro deflection
+      45 // Speed steady
     );
   };
 
-  const runPunctureDragSim = () => {
-    setActiveSimulationName('Tyre Blowout / Mechanical Drag');
-    // Cruising at 70 km/h drops to 20 km/h without violent gyro tumble
+  // Zero-Speed Stationary Hand Shake (v = 0 km/h) False Positive Filter Test
+  const runStationaryShakeSim = () => {
+    setActiveSimulationName('Zero-Speed Hand Shake (v = 0 km/h False Positive Test)');
     SensorHub.injectSimulatedFrame(
-      { x: 0.2, y: 0.3, z: 1.0, jerk: 1 },
-      { x: 0.1, y: 0.1, z: 0.1 },
-      70
+      { x: 3.8, y: -4.5, z: 2.2, jerk: 42 },
+      { x: 5.8, y: 6.5, z: 4.5 },
+      0 // Speed is 0 km/h (phone shaken in hand while stationary)
     );
-
-    setTimeout(() => {
-      SensorHub.injectSimulatedFrame(
-        { x: 0.8, y: -1.2, z: 1.4, jerk: 8 },
-        { x: 0.6, y: 0.8, z: 0.4 }, // Moderate gyro (no crash roll)
-        18 // Decelerated by 52 km/h
-      );
-    }, 200);
   };
 
-  const runTwoWheelerFallSim = () => {
-    setActiveSimulationName('Two-Wheeler Skid / Roll');
-    // Low speed (25 km/h) but high angular rotation as bike falls on side
-    SensorHub.injectSimulatedFrame(
-      { x: 1.2, y: 2.8, z: 0.4, jerk: 18 },
-      { x: 5.5, y: 4.8, z: 3.2 }, // High gyro
-      0
-    );
+  // ----------------------------------------------------
+  // SOUND OBSERVATION CRASH SIMULATIONS
+  // ----------------------------------------------------
+  const runAcousticCrashSim = () => {
+    setActiveSimulationName('Sound Observation: Metal Crash & Glass Shatter');
+    const result = AudioCrashDetector.simulateAcousticEvent('crash');
+    setAcousticResult(result);
+  };
+
+  const runAcousticNormalSim = () => {
+    setActiveSimulationName('Sound Observation: Normal Cabin Driving Audio');
+    const result = AudioCrashDetector.simulateAcousticEvent('normal');
+    setAcousticResult(result);
   };
 
   const handleResetSim = () => {
@@ -144,6 +169,12 @@ export const SensorLabScreen: React.FC = () => {
               styles.statusBadge,
               evaluation.eventType === 'POSSIBLE_ACCIDENT'
                 ? styles.badgeRed
+                : evaluation.eventType === 'OBSTACLE_FACED'
+                ? styles.badgeAmber
+                : evaluation.eventType === 'HEAVY_BUMP'
+                ? styles.badgeAmber
+                : evaluation.eventType === 'PHONE_SHAKE'
+                ? styles.badgeGray
                 : evaluation.eventType === 'POSSIBLE_BREAKDOWN'
                 ? styles.badgeAmber
                 : styles.badgeGreen,
@@ -154,6 +185,12 @@ export const SensorLabScreen: React.FC = () => {
                 styles.statusBadgeText,
                 evaluation.eventType === 'POSSIBLE_ACCIDENT'
                   ? styles.textRed
+                  : evaluation.eventType === 'OBSTACLE_FACED'
+                  ? styles.textAmber
+                  : evaluation.eventType === 'HEAVY_BUMP'
+                  ? styles.textAmber
+                  : evaluation.eventType === 'PHONE_SHAKE'
+                  ? styles.textGray
                   : evaluation.eventType === 'POSSIBLE_BREAKDOWN'
                   ? styles.textAmber
                   : styles.textGreen,
@@ -175,24 +212,49 @@ export const SensorLabScreen: React.FC = () => {
               {
                 width: `${Math.min(100, (evaluation.anomalyScore / 10) * 100)}%`,
                 backgroundColor:
-                  evaluation.anomalyScore >= thresholds.crashAnomalyThreshold
+                  evaluation.eventType === 'POSSIBLE_ACCIDENT'
                     ? '#FF3B30'
-                    : evaluation.anomalyScore >= thresholds.mechanicalThreshold
+                    : evaluation.eventType === 'OBSTACLE_FACED'
                     ? '#FFA500'
+                    : evaluation.eventType === 'HEAVY_BUMP'
+                    ? '#D29922'
+                    : evaluation.eventType === 'PHONE_SHAKE'
+                    ? '#8B949E'
                     : '#3FB950',
               },
             ]}
           />
         </View>
 
-        {/* Threshold Markers */}
-        <View style={styles.thresholdRow}>
-          <Text style={styles.thresholdText}>
-            Breakdown: ≥{thresholds.mechanicalThreshold}
-          </Text>
-          <Text style={styles.thresholdText}>
-            Crash: ≥{thresholds.crashAnomalyThreshold}
-          </Text>
+        {/* VZCrash Dataset Real-Life Thresholds */}
+        <View style={styles.vzCrashThresholdsCard}>
+          <Text style={styles.vzCrashHeaderTitle}>VZCrash Dataset Real-Life Thresholds:</Text>
+          <View style={styles.thresholdItemRow}>
+            <View style={[styles.rulePill, { backgroundColor: 'rgba(255, 165, 0, 0.15)', borderColor: '#FFA500' }]}>
+              <Text style={[styles.rulePillText, { color: '#FFA500' }]}>Rule A: Obstacle</Text>
+            </View>
+            <Text style={styles.thresholdItemDesc}>
+              Speed Drop ≥{thresholds.obstacleSpeedDropThreshold} km/h + Jerk ≥{thresholds.obstacleJerkThreshold} m/s³ (Gyro &lt;{(thresholds.gyroCrashThreshold * 0.45).toFixed(1)} rad/s)
+            </Text>
+          </View>
+
+          <View style={styles.thresholdItemRow}>
+            <View style={[styles.rulePill, { backgroundColor: 'rgba(210, 153, 34, 0.15)', borderColor: '#D29922' }]}>
+              <Text style={[styles.rulePillText, { color: '#D29922' }]}>Rule B: Heavy Bump</Text>
+            </View>
+            <Text style={styles.thresholdItemDesc}>
+              Speed Drop ≤{thresholds.bumpSpeedDropMax} km/h + Gyro ≥{thresholds.bumpGyroMin} rad/s (Suppressed)
+            </Text>
+          </View>
+
+          <View style={styles.thresholdItemRow}>
+            <View style={[styles.rulePill, { backgroundColor: 'rgba(248, 81, 73, 0.15)', borderColor: '#F85149' }]}>
+              <Text style={[styles.rulePillText, { color: '#F85149' }]}>Rule C: Crash</Text>
+            </View>
+            <Text style={styles.thresholdItemDesc}>
+              Gyro ≥{thresholds.gyroCrashThreshold} rad/s + Accel Jerk ≥{thresholds.accelJerkCrashThreshold} m/s³ (Score ≥{thresholds.crashAnomalyThreshold})
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -288,77 +350,137 @@ export const SensorLabScreen: React.FC = () => {
       </View>
 
       <View style={styles.simTriggersContainer}>
-        {/* Scenario 1: Highway Crash */}
+        {/* Scenario 1: Rule C - Both Intensity Change (Accident) */}
         <TouchableOpacity
           style={styles.simCard}
           activeOpacity={0.8}
-          onPress={runHighwayCrashSim}
+          onPress={runRuleCAccidentSim}
         >
           <View style={[styles.simIconBox, { backgroundColor: 'rgba(255, 59, 48, 0.15)' }]}>
             <AlertOctagon size={22} color="#FF3B30" />
           </View>
           <View style={styles.simContent}>
-            <Text style={styles.simName}>1. High-Speed Highway Crash</Text>
+            <Text style={styles.simName}>1. Rule C: Both Intensity Change (Accident)</Text>
             <Text style={styles.simDesc}>
-              80 km/h → 0 km/h + high gyro roll. Triggers POSSIBLE_ACCIDENT.
+              85 km/h → 0 km/h shock + violent gyro roll. Triggers POSSIBLE_ACCIDENT.
             </Text>
           </View>
           <Play size={18} color="#FF3B30" />
         </TouchableOpacity>
 
-        {/* Scenario 2: Pothole Bump */}
+        {/* Scenario 2: Rule A - Obstacle Faced */}
         <TouchableOpacity
           style={styles.simCard}
           activeOpacity={0.8}
-          onPress={runPotholeSim}
-        >
-          <View style={[styles.simIconBox, { backgroundColor: 'rgba(63, 185, 80, 0.15)' }]}>
-            <CheckCircle size={22} color="#3FB950" />
-          </View>
-          <View style={styles.simContent}>
-            <Text style={styles.simName}>2. Indian Road Pothole / Bump</Text>
-            <Text style={styles.simDesc}>
-              Sharp Z-jerk with steady speed. Suppressed to avoid false alarms.
-            </Text>
-          </View>
-          <Play size={18} color="#3FB950" />
-        </TouchableOpacity>
-
-        {/* Scenario 3: Puncture Drag */}
-        <TouchableOpacity
-          style={styles.simCard}
-          activeOpacity={0.8}
-          onPress={runPunctureDragSim}
+          onPress={runRuleAObstacleSim}
         >
           <View style={[styles.simIconBox, { backgroundColor: 'rgba(255, 165, 0, 0.15)' }]}>
-            <Zap size={22} color="#FFA500" />
+            <ShieldAlert size={22} color="#FFA500" />
           </View>
           <View style={styles.simContent}>
-            <Text style={styles.simName}>3. Sudden Tyre Blowout / Drag</Text>
+            <Text style={styles.simName}>2. Rule A: Obstacle Faced (No Gyro Break)</Text>
             <Text style={styles.simDesc}>
-              70 km/h → 18 km/h without violent roll. Triggers POSSIBLE_BREAKDOWN.
+              Sharp 80 → 12 km/h brake/obstacle shock without vehicle roll. Triggers OBSTACLE_FACED.
             </Text>
           </View>
           <Play size={18} color="#FFA500" />
         </TouchableOpacity>
 
-        {/* Scenario 4: Two-Wheeler Fall */}
+        {/* Scenario 3: Rule B - Heavy Bump */}
         <TouchableOpacity
           style={styles.simCard}
           activeOpacity={0.8}
-          onPress={runTwoWheelerFallSim}
+          onPress={runRuleBBumpSim}
         >
-          <View style={[styles.simIconBox, { backgroundColor: 'rgba(210, 153, 34, 0.15)' }]}>
-            <Activity size={22} color="#D29922" />
+          <View style={[styles.simIconBox, { backgroundColor: 'rgba(63, 185, 80, 0.15)' }]}>
+            <CheckCircle size={22} color="#3FB950" />
           </View>
           <View style={styles.simContent}>
-            <Text style={styles.simName}>4. Two-Wheeler Low-Speed Skid</Text>
+            <Text style={styles.simName}>3. Rule B: Heavy Bump (Steady Accel, Gyro Obvious)</Text>
             <Text style={styles.simDesc}>
-              25 km/h low-speed bike drop with roll. Triggers POSSIBLE_ACCIDENT.
+              Steady 45 km/h + high gyro roll/pitch. Suppressed to HEAVY_BUMP (no false alarm).
             </Text>
           </View>
-          <Play size={18} color="#D29922" />
+          <Play size={18} color="#3FB950" />
         </TouchableOpacity>
+
+        {/* Scenario 4: Zero-Speed Hand Shake (False Positive Filter) */}
+        <TouchableOpacity
+          style={styles.simCard}
+          activeOpacity={0.8}
+          onPress={runStationaryShakeSim}
+        >
+          <View style={[styles.simIconBox, { backgroundColor: 'rgba(139, 148, 158, 0.15)' }]}>
+            <Activity size={22} color="#8B949E" />
+          </View>
+          <View style={styles.simContent}>
+            <Text style={styles.simName}>4. Zero-Speed Hand Shake (v = 0 km/h)</Text>
+            <Text style={styles.simDesc}>
+              Violent shaking while stationary (0 km/h). Suppressed to PHONE_SHAKE with zero false alarm SOS.
+            </Text>
+          </View>
+          <Play size={18} color="#8B949E" />
+        </TouchableOpacity>
+
+        {/* Scenario 5: Acoustic Sound Observation - Crash */}
+        <TouchableOpacity
+          style={styles.simCard}
+          activeOpacity={0.8}
+          onPress={runAcousticCrashSim}
+        >
+          <View style={[styles.simIconBox, { backgroundColor: 'rgba(218, 54, 51, 0.15)' }]}>
+            <Mic size={22} color="#F85149" />
+          </View>
+          <View style={styles.simContent}>
+            <Text style={styles.simName}>5. Sound Observation: Crash Impact Audio</Text>
+            <Text style={styles.simDesc}>
+              Simulates high-energy crunch & glass shatter (MIVIA/NINA/DeepCrashzam).
+            </Text>
+          </View>
+          <Play size={18} color="#F85149" />
+        </TouchableOpacity>
+
+        {/* Scenario 5: Acoustic Sound Observation - Normal */}
+        <TouchableOpacity
+          style={styles.simCard}
+          activeOpacity={0.8}
+          onPress={runAcousticNormalSim}
+        >
+          <View style={[styles.simIconBox, { backgroundColor: 'rgba(88, 166, 255, 0.15)' }]}>
+            <Volume2 size={22} color="#58A6FF" />
+          </View>
+          <View style={styles.simContent}>
+            <Text style={styles.simName}>5. Sound Observation: Normal Cabin Audio</Text>
+            <Text style={styles.simDesc}>
+              Normal vehicle engine hum & highway cruising audio (safe baseline).
+            </Text>
+          </View>
+          <Play size={18} color="#58A6FF" />
+        </TouchableOpacity>
+
+        {/* Acoustic Result Display Card if tested */}
+        {acousticResult && (
+          <View style={styles.acousticResultCard}>
+            <View style={styles.acousticResultHeader}>
+              <Mic size={18} color={acousticResult.isCrashEvent ? '#FF4D4D' : '#3FB950'} />
+              <Text style={styles.acousticResultTitle}>
+                Acoustic Neural Classification: {acousticResult.predictedClass}
+              </Text>
+            </View>
+            <Text style={styles.acousticResultDesc}>{acousticResult.reasoning}</Text>
+            <View style={styles.acousticProbRow}>
+              <Text style={styles.probPill}>
+                Crash: {(acousticResult.probabilities.CRASH_IMPACT * 100).toFixed(0)}%
+              </Text>
+              <Text style={styles.probPill}>
+                Skid: {(acousticResult.probabilities.TIRE_SKID_SCREECH * 100).toFixed(0)}%
+              </Text>
+              <Text style={styles.probPill}>
+                Normal: {(acousticResult.probabilities.NORMAL_VEHICLE * 100).toFixed(0)}%
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Reset Simulation */}
         <TouchableOpacity
@@ -446,6 +568,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(63, 185, 80, 0.15)',
     borderColor: 'rgba(63, 185, 80, 0.4)',
   },
+  badgeGray: {
+    backgroundColor: 'rgba(139, 148, 158, 0.15)',
+    borderColor: 'rgba(139, 148, 158, 0.4)',
+  },
   statusBadgeText: {
     fontSize: 11,
     fontWeight: '800',
@@ -453,6 +579,7 @@ const styles = StyleSheet.create({
   textRed: { color: '#FF4D4D' },
   textAmber: { color: '#FFA500' },
   textGreen: { color: '#3FB950' },
+  textGray: { color: '#8B949E' },
   scoreNumber: {
     color: '#FFFFFF',
     fontSize: 48,
@@ -475,6 +602,45 @@ const styles = StyleSheet.create({
   barFill: {
     height: '100%',
     borderRadius: 5,
+  },
+  vzCrashThresholdsCard: {
+    backgroundColor: '#0D1117',
+    borderColor: '#30363D',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+    gap: 8,
+  },
+  vzCrashHeaderTitle: {
+    color: '#8B949E',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  thresholdItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  rulePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  rulePillText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  thresholdItemDesc: {
+    color: '#C9D1D9',
+    fontSize: 11,
+    flex: 1,
+    lineHeight: 16,
   },
   thresholdRow: {
     flexDirection: 'row',
@@ -611,5 +777,43 @@ const styles = StyleSheet.create({
     color: '#C9D1D9',
     fontSize: 13,
     fontWeight: '700',
+  },
+  acousticResultCard: {
+    backgroundColor: '#0D1117',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#30363D',
+    marginTop: 4,
+  },
+  acousticResultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  acousticResultTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  acousticResultDesc: {
+    color: '#8B949E',
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 10,
+  },
+  acousticProbRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  probPill: {
+    backgroundColor: '#21262D',
+    color: '#C9D1D9',
+    fontSize: 11,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
 });

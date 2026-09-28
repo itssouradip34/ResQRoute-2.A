@@ -21,9 +21,13 @@ import {
   Sliders,
   Smartphone,
   Volume2,
+  Mic,
+  BrainCircuit,
 } from 'lucide-react-native';
 import { useSettings } from '../context/SettingsContext';
 import { SensitivityLevel } from '../types';
+import { AudioConsentModal } from '../components/AudioConsentModal';
+import { AudioCrashDetector } from '../services/audio/AudioCrashDetector';
 
 export const SettingsScreen: React.FC = () => {
   const {
@@ -33,12 +37,15 @@ export const SettingsScreen: React.FC = () => {
     toggleAudioAlarm,
     toggleVibration,
     toggleLanguage,
+    toggleAcousticMonitoring,
+    updateAcousticConsent,
     downloadRegionalBundle,
     updateConsent,
   } = useSettings();
 
   const [downloading, setDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
+  const [showAcousticConsentModal, setShowAcousticConsentModal] = useState(false);
 
   const countdownOptions = [10, 15, 20, 30, 45, 60];
 
@@ -284,6 +291,82 @@ export const SettingsScreen: React.FC = () => {
             thumbColor="#FFFFFF"
           />
         </View>
+        <View style={styles.divider} />
+
+        <View style={styles.switchRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.switchLabel}>
+              {settings.language === 'hi'
+                ? 'ध्वनि आधारित दुर्घटना पहचान (Acoustic)'
+                : 'Acoustic Crash Audio Monitoring'}
+            </Text>
+            <Text style={styles.switchSub}>
+              {settings.language === 'hi'
+                ? 'माइक्रोफोन द्वारा टक्कर, शीशा टूटने व टायर फिसलने की ध्वनि पहचान (उपयोगकर्ता सहमति आवश्यक)'
+                : 'Real-time on-device collision acoustic detection (requires explicit user consent)'}
+            </Text>
+          </View>
+          <Switch
+            value={settings.enableAcousticMonitoring}
+            onValueChange={(val) => {
+              if (val && !settings.acousticConsentGranted) {
+                setShowAcousticConsentModal(true);
+              } else {
+                toggleAcousticMonitoring();
+                AudioCrashDetector.setConsentGranted(val);
+                if (val) AudioCrashDetector.startMonitoring();
+                else AudioCrashDetector.stopMonitoring();
+              }
+            }}
+            trackColor={{ false: '#21262D', true: '#238636' }}
+            thumbColor="#FFFFFF"
+          />
+        </View>
+      </View>
+
+      {/* 6. Neural Models & Zero-.pt Engine Architecture */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
+          <BrainCircuit size={18} color="#D2A8FF" />
+          <Text style={styles.sectionTitle}>
+            {settings.language === 'hi' ? 'न्यूरल इंजन एवं AI मॉडल' : 'Neural Edge Models (Zero .pt)'}
+          </Text>
+        </View>
+        <Text style={styles.sectionDesc}>
+          All neural networks run in high-speed, portable JSON/ONNX tensors directly on-device with zero PyTorch .pt runtime dependencies.
+        </Text>
+
+        <View style={styles.modelStatusBox}>
+          <View style={styles.modelStatusRow}>
+            <Text style={styles.modelNameText}>🚗 VZCrash Kinematics Net</Text>
+            <Text style={styles.modelStatusPill}>Active (JSON Weights)</Text>
+          </View>
+          <Text style={styles.modelDetailsText}>
+            Trained on vzc-research-chapter/VZCrash dataset. Enforces Obstacle, Heavy Bump, and Accident kinematics.
+          </Text>
+        </View>
+
+        <View style={[styles.modelStatusBox, { marginTop: 8 }]}>
+          <View style={styles.modelStatusRow}>
+            <Text style={styles.modelNameText}>🎧 Acoustic Collision Net</Text>
+            <Text style={styles.modelStatusPill}>
+              {settings.enableAcousticMonitoring ? 'Active' : 'Standby'}
+            </Text>
+          </View>
+          <Text style={styles.modelDetailsText}>
+            Trained on MIVIA Road Events, NINA, DeepCrashzam, AudioSet. Analyzes tire screeches & crunch transients.
+          </Text>
+        </View>
+
+        <View style={[styles.modelStatusBox, { marginTop: 8 }]}>
+          <View style={styles.modelStatusRow}>
+            <Text style={styles.modelNameText}>🤖 AI Triage Dual Engine</Text>
+            <Text style={styles.modelStatusPill}>Hybrid Online/Offline</Text>
+          </View>
+          <Text style={styles.modelDetailsText}>
+            Google Gemini 2.0 API online triage with on-device Indian roadside emergency intent fallback.
+          </Text>
+        </View>
       </View>
 
       {/* App Version Info */}
@@ -292,11 +375,20 @@ export const SettingsScreen: React.FC = () => {
           ResQRoute-A v2.0 • AI-Powered Roadside Emergency & Rescue Navigator
         </Text>
         <Text style={styles.footerSub}>
-          Antigravity Mobile Engine • Supabase Postgres PostGIS
+          Zero .pt Architecture • Google Maps Reverse Geocode • Supabase Edge Call
         </Text>
       </View>
 
       <View style={{ height: 40 }} />
+
+      {/* Acoustic Consent Modal */}
+      <AudioConsentModal
+        visible={showAcousticConsentModal}
+        onClose={() => setShowAcousticConsentModal(false)}
+        onConsentGranted={() => {
+          updateAcousticConsent(true);
+        }}
+      />
     </ScrollView>
   );
 };
@@ -440,5 +532,38 @@ const styles = StyleSheet.create({
   footerSub: {
     color: '#484F58',
     fontSize: 10,
+  },
+  modelStatusBox: {
+    backgroundColor: '#0D1117',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#21262D',
+  },
+  modelStatusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  modelNameText: {
+    color: '#F0F6FC',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  modelStatusPill: {
+    backgroundColor: 'rgba(63, 185, 80, 0.15)',
+    color: '#3FB950',
+    fontSize: 10,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  modelDetailsText: {
+    color: '#8B949E',
+    fontSize: 11,
+    lineHeight: 15,
   },
 });

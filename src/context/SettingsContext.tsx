@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SensitivityLevel, UserSettings } from '../types';
+import {
+  DrivingStyle,
+  ExperienceLevel,
+  SensitivityLevel,
+  UserSettings,
+  VehicleType,
+} from '../types';
 import { AnomalyDetector } from '../services/sensor/AnomalyDetector';
 import { EmergencyManager } from '../services/emergency/EmergencyManager';
 import { OfflineFallbackService } from '../services/emergency/OfflineFallbackService';
@@ -14,10 +20,15 @@ const DEFAULT_SETTINGS: UserSettings = {
   enableAudioAlarm: true,
   enableVibration: true,
   enableBackgroundMonitoring: true,
+  enableAcousticMonitoring: false,
+  acousticConsentGranted: false,
   offlineDataDownloaded: true,
   locationConsentGranted: true,
   sensorConsentGranted: true,
   language: 'en',
+  vehicleType: 'four_wheeler',
+  experienceLevel: 'intermediate',
+  drivingStyle: 'standard',
 };
 
 interface SettingsContextType {
@@ -25,9 +36,16 @@ interface SettingsContextType {
   isOnline: boolean;
   updateSensitivity: (level: SensitivityLevel) => void;
   updateCountdown: (seconds: number) => void;
+  updateVehicleProfile: (
+    vehicleType: VehicleType,
+    experienceLevel: ExperienceLevel,
+    drivingStyle: DrivingStyle
+  ) => void;
   toggleAudioAlarm: () => void;
   toggleVibration: () => void;
   toggleLanguage: () => void;
+  toggleAcousticMonitoring: () => void;
+  updateAcousticConsent: (granted: boolean) => void;
   downloadRegionalBundle: (regionCode: string) => Promise<boolean>;
   updateConsent: (location: boolean, sensor: boolean) => void;
 }
@@ -119,11 +137,42 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     return success;
   };
 
+  const toggleAcousticMonitoring = () => {
+    const updated = {
+      ...settings,
+      enableAcousticMonitoring: !settings.enableAcousticMonitoring,
+    };
+    saveSettings(updated);
+  };
+
+  const updateAcousticConsent = (granted: boolean) => {
+    const updated = {
+      ...settings,
+      acousticConsentGranted: granted,
+      enableAcousticMonitoring: granted,
+    };
+    saveSettings(updated);
+  };
+
   const updateConsent = (location: boolean, sensor: boolean) => {
     const updated = {
       ...settings,
       locationConsentGranted: location,
       sensorConsentGranted: sensor,
+    };
+    saveSettings(updated);
+  };
+
+  const updateVehicleProfile = (
+    vehicleType: VehicleType,
+    experienceLevel: ExperienceLevel,
+    drivingStyle: DrivingStyle
+  ) => {
+    const updated = {
+      ...settings,
+      vehicleType,
+      experienceLevel,
+      drivingStyle,
     };
     saveSettings(updated);
   };
@@ -135,9 +184,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         isOnline,
         updateSensitivity,
         updateCountdown,
+        updateVehicleProfile,
         toggleAudioAlarm,
         toggleVibration,
         toggleLanguage,
+        toggleAcousticMonitoring,
+        updateAcousticConsent,
         downloadRegionalBundle,
         updateConsent,
       }}

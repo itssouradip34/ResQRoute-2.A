@@ -97,6 +97,13 @@ export const TrustedContactsScreen: React.FC = () => {
   // wa.me deep links can't silently dispatch a message on their own, and
   // since each one switches away from the app, this is per-contact rather
   // than a single "send to all" action.
+  const handleDirectSIMCall = (contact: TrustedContact) => {
+    const cleanNumber = contact.phone_number.replace(/[^0-9+]/g, '');
+    Linking.openURL(`tel:${cleanNumber}`).catch((err) =>
+      Alert.alert('Call Failed', 'Unable to open device dialer.')
+    );
+  };
+
   const handleShareViaWhatsApp = async (contact: TrustedContact) => {
     const url = OfflineFallbackService.getWhatsAppShareURL(
       contact.phone_number,
@@ -297,6 +304,12 @@ export const TrustedContactsScreen: React.FC = () => {
             </View>
 
             <View style={styles.contactActions}>
+              <TouchableOpacity
+                style={styles.contactActionBtn}
+                onPress={() => handleDirectSIMCall(contact)}
+              >
+                <Phone size={16} color="#D29922" />
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.contactActionBtn}
                 onPress={() => handleShareViaWhatsApp(contact)}
