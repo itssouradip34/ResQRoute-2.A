@@ -3,6 +3,7 @@
 # dependencies
 node_modules/
 .venv/
+__pycache__/
 
 # Expo
 .expo/
