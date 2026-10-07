@@ -59,11 +59,20 @@ export class LiveNearbyServicesFetcher {
         out body 35;
       `;
 
-      const response = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `data=${encodeURIComponent(overpassQuery)}`,
-      });
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
+
+      let response: Response;
+      try {
+        response = await fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `data=${encodeURIComponent(overpassQuery)}`,
+          signal: controller?.signal,
+        });
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+      }
 
       if (!response.ok) {
         throw new Error(`Overpass API responded with HTTP ${response.status}`);
@@ -71,6 +80,7 @@ export class LiveNearbyServicesFetcher {
 
       const json = await response.json();
       const elements: any[] = json.elements || [];
+
 
       if (elements.length > 0) {
         const liveServices: EmergencyService[] = elements

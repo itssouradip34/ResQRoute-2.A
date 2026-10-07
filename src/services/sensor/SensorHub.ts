@@ -246,8 +246,33 @@ class SensorHubService {
   }
 
   public async refreshAddress(): Promise<string> {
-    return this.resolveAddressForCurrentLocation();
+    try {
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      }).catch(() => null);
+
+      if (loc) {
+        this.currentLocation = {
+          ...this.currentLocation,
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+          speed: Math.max(0, (loc.coords.speed || 0) * 3.6),
+          accuracy: loc.coords.accuracy || 10,
+          regionCode: this.detectRegionFromCoords(
+            loc.coords.latitude,
+            loc.coords.longitude
+          ),
+        };
+      }
+    } catch (e) {
+      console.warn('GPS location fetch fallback:', e);
+    }
+
+    const addr = await this.resolveAddressForCurrentLocation();
+    this.emitFrame();
+    return addr;
   }
+
 
   public detectRegionFromCoords(lat: number, lng: number): string {
     // Spatial boundary approximations for key Indian states/regions

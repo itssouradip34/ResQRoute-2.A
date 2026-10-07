@@ -168,10 +168,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             />
             <TouchableOpacity
               style={styles.saveLocationBtn}
-              onPress={() => setIsEditingLocation(false)}
+              onPress={() => {
+                if (customAddress.trim()) {
+                  SensorHub.setMockLocation({ addressName: customAddress.trim() });
+                }
+                setIsEditingLocation(false);
+              }}
             >
               <Text style={styles.saveLocationText}>Save</Text>
             </TouchableOpacity>
+
           </View>
         ) : (
           <TouchableOpacity
@@ -341,6 +347,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+  },
+  refreshGeoBtn: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: '#21262D',
   },
   regionBadgeText: {
     color: '#58A6FF',

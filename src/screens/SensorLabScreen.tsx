@@ -19,10 +19,17 @@ import {
   Mic,
   Volume2,
   ShieldAlert,
+  Layers,
+  AlertTriangle,
+  ShieldCheck,
 } from 'lucide-react-native';
 import { SensorFrame, SensorHub } from '../services/sensor/SensorHub';
 import { AnomalyDetector } from '../services/sensor/AnomalyDetector';
 import { AudioCrashDetector, AcousticDetectionResult } from '../services/audio/AudioCrashDetector';
+import {
+  CarlaScenarioTemplates,
+  ExecutableScenario,
+} from '../scenarios/CarlaScenarioTemplates';
 import { useEmergency } from '../context/EmergencyContext';
 import { useSettings } from '../context/SettingsContext';
 import { SensitivityLevel } from '../types';
@@ -132,9 +139,33 @@ export const SensorLabScreen: React.FC = () => {
     setAcousticResult(result);
   };
 
+  const runAcousticHornSim = () => {
+    setActiveSimulationName('Sound Observation: Vehicle Horn Honk (Horn != Crash)');
+    const result = AudioCrashDetector.simulateAcousticEvent('horn');
+    setAcousticResult(result);
+  };
+
+  const runCarlaScenario = (sc: ExecutableScenario) => {
+    setActiveSimulationName(`CARLA: ${sc.name}`);
+    sc.frames.forEach((f, idx) => {
+      setTimeout(() => {
+        SensorHub.injectSimulatedFrame(
+          { x: f.accel.x, y: f.accel.y, z: f.accel.z, jerk: f.accel.jerk },
+          { x: f.gyro.x, y: f.gyro.y, z: f.gyro.z },
+          f.speedKmH
+        );
+      }, idx * 100);
+    });
+    if (sc.acousticFrame) {
+      const res = AudioCrashDetector.evaluateFrame(sc.acousticFrame);
+      setAcousticResult(res);
+    }
+  };
+
   const handleResetSim = () => {
     setActiveSimulationName(null);
     SensorHub.resetSimulation();
+    setAcousticResult(null);
   };
 
   return (
@@ -256,6 +287,165 @@ export const SensorLabScreen: React.FC = () => {
             </Text>
           </View>
         </View>
+      </View>
+
+      {/* Multimodal Research & Fusion Debug Panel */}
+      <View style={styles.fusionDebugCard}>
+        <View style={styles.fusionHeaderRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Layers size={18} color="#58A6FF" />
+            <Text style={styles.fusionPanelTitle}>MULTIMODAL SENSOR-FUSION</Text>
+          </View>
+          <View
+            style={[
+              styles.severityBadge,
+              evaluation.severity === 'CRITICAL'
+                ? styles.badgeCrit
+                : evaluation.severity === 'HIGH'
+                ? styles.badgeHigh
+                : evaluation.severity === 'MEDIUM'
+                ? styles.badgeMed
+                : styles.badgeLow,
+            ]}
+          >
+            <Text
+              style={[
+                styles.severityText,
+                evaluation.severity === 'CRITICAL'
+                  ? styles.textCrit
+                  : evaluation.severity === 'HIGH'
+                  ? styles.textHigh
+                  : evaluation.severity === 'MEDIUM'
+                  ? styles.textMed
+                  : styles.textLow,
+              ]}
+            >
+              {evaluation.severity || 'LOW'} SEVERITY
+            </Text>
+          </View>
+        </View>
+
+        {/* 13-Class Taxonomy Classification */}
+        <View style={styles.taxonomyRow}>
+          <Text style={styles.taxonomyLabel}>Predicted Event Taxonomy:</Text>
+          <View style={styles.taxonomyPill}>
+            <Text style={styles.taxonomyValue}>
+              {evaluation.taxonomyClass || 'NORMAL_DRIVING'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Temporal Phase Tracker */}
+        <View style={styles.temporalPhaseRow}>
+          <Text style={styles.temporalPhaseLabel}>Temporal Collision Stage:</Text>
+          <View style={styles.phasePill}>
+            <Text style={styles.phasePillText}>
+              {evaluation.temporalPhase || 'PRE_EVENT'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Modality Evidence Gauges */}
+        <View style={styles.evidenceSection}>
+          <Text style={styles.evidenceTitle}>Modality Evidence Breakdown:</Text>
+          <View style={styles.evidenceGrid}>
+            <View style={styles.evidenceItem}>
+              <Text style={styles.evidenceLabel}>IMU Energy</Text>
+              <Text style={styles.evidenceVal}>
+                {Math.round((evaluation.evidenceScores?.imuEvidence ?? 0) * 100)}%
+              </Text>
+              <View style={styles.evidenceBarTrack}>
+                <View
+                  style={[
+                    styles.evidenceBarFill,
+                    {
+                      width: `${Math.round((evaluation.evidenceScores?.imuEvidence ?? 0) * 100)}%`,
+                      backgroundColor: '#58A6FF',
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+
+            <View style={styles.evidenceItem}>
+              <Text style={styles.evidenceLabel}>Speed Loss</Text>
+              <Text style={styles.evidenceVal}>
+                {Math.round((evaluation.evidenceScores?.speedEvidence ?? 0) * 100)}%
+              </Text>
+              <View style={styles.evidenceBarTrack}>
+                <View
+                  style={[
+                    styles.evidenceBarFill,
+                    {
+                      width: `${Math.round((evaluation.evidenceScores?.speedEvidence ?? 0) * 100)}%`,
+                      backgroundColor: '#E3B341',
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+
+            <View style={styles.evidenceItem}>
+              <Text style={styles.evidenceLabel}>Audio Crash</Text>
+              <Text style={styles.evidenceVal}>
+                {evaluation.evidenceScores?.audioEvidence !== undefined
+                  ? `${Math.round(evaluation.evidenceScores.audioEvidence * 100)}%`
+                  : 'N/A'}
+              </Text>
+              <View style={styles.evidenceBarTrack}>
+                <View
+                  style={[
+                    styles.evidenceBarFill,
+                    {
+                      width: `${Math.round((evaluation.evidenceScores?.audioEvidence ?? 0) * 100)}%`,
+                      backgroundColor: '#F85149',
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+
+            <View style={styles.evidenceItem}>
+              <Text style={styles.evidenceLabel}>Fused Score</Text>
+              <Text style={[styles.evidenceVal, { color: '#3FB950' }]}>
+                {evaluation.evidenceScores?.normalizedScore !== undefined
+                  ? `${(evaluation.evidenceScores.normalizedScore * 10).toFixed(1)}/10`
+                  : `${evaluation.anomalyScore.toFixed(1)}/10`}
+              </Text>
+              <View style={styles.evidenceBarTrack}>
+                <View
+                  style={[
+                    styles.evidenceBarFill,
+                    {
+                      width: `${Math.min(100, (evaluation.evidenceScores?.normalizedScore ?? 0) * 100)}%`,
+                      backgroundColor: '#3FB950',
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Agreement / Disagreement Status */}
+        {evaluation.disagreementReport?.hasDisagreement ? (
+          <View style={styles.disagreementBox}>
+            <AlertTriangle size={16} color="#FFA500" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.disagreementTitle}>SENSOR DISAGREEMENT DETECTED</Text>
+              <Text style={styles.disagreementDesc}>
+                {evaluation.disagreementReport.reason}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.agreementBox}>
+            <ShieldCheck size={16} color="#3FB950" />
+            <Text style={styles.agreementText}>
+              All sensor modalities are in physical agreement.
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Live Kinematic Gauges */}
@@ -453,6 +643,175 @@ export const SensorLabScreen: React.FC = () => {
             <Text style={styles.simName}>5. Sound Observation: Normal Cabin Audio</Text>
             <Text style={styles.simDesc}>
               Normal vehicle engine hum & highway cruising audio (safe baseline).
+            </Text>
+          </View>
+          <Play size={18} color="#58A6FF" />
+        </TouchableOpacity>
+
+        {/* Scenario 6: Sound Observation - Traffic Horn (horn != crash) */}
+        <TouchableOpacity
+          style={styles.simCard}
+          activeOpacity={0.8}
+          onPress={runAcousticHornSim}
+        >
+          <View style={[styles.simIconBox, { backgroundColor: 'rgba(227, 179, 65, 0.15)' }]}>
+            <Volume2 size={22} color="#E3B341" />
+          </View>
+          <View style={styles.simContent}>
+            <Text style={styles.simName}>6. Sound Observation: Traffic Horn (Horn != Crash)</Text>
+            <Text style={styles.simDesc}>
+              Loud vehicle horn honking in Indian traffic. Suppressed as non-crash.
+            </Text>
+          </View>
+          <Play size={18} color="#E3B341" />
+        </TouchableOpacity>
+
+        {/* Section Divider: CARLA & Indian Multimodal Scenarios */}
+        <View style={{ marginVertical: 10, paddingHorizontal: 4 }}>
+          <Text style={{ color: '#58A6FF', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 }}>
+            CARLA & INDIAN MULTIMODAL SCENARIO RUNNERS
+          </Text>
+        </View>
+
+        {/* CARLA Scenario A: Head-On Collision */}
+        <TouchableOpacity
+          style={styles.simCard}
+          activeOpacity={0.8}
+          onPress={() => runCarlaScenario(CarlaScenarioTemplates.highSpeedHeadOn())}
+        >
+          <View style={[styles.simIconBox, { backgroundColor: 'rgba(255, 59, 48, 0.15)' }]}>
+            <AlertOctagon size={22} color="#FF3B30" />
+          </View>
+          <View style={styles.simContent}>
+            <Text style={styles.simName}>CARLA: High-Speed Head-On Collision</Text>
+            <Text style={styles.simDesc}>
+              80 km/h → 0 km/h impact shock, violent decel + glass crunch. Triggers COLLISION (Critical).
+            </Text>
+          </View>
+          <Play size={18} color="#FF3B30" />
+        </TouchableOpacity>
+
+        {/* CARLA Scenario B: Rollover & Inversion */}
+        <TouchableOpacity
+          style={styles.simCard}
+          activeOpacity={0.8}
+          onPress={() => runCarlaScenario(CarlaScenarioTemplates.rolloverCrash())}
+        >
+          <View style={[styles.simIconBox, { backgroundColor: 'rgba(248, 81, 73, 0.15)' }]}>
+            <RotateCcw size={22} color="#F85149" />
+          </View>
+          <View style={styles.simContent}>
+            <Text style={styles.simName}>CARLA: High-Speed Rollover & Inversion</Text>
+            <Text style={styles.simDesc}>
+              Multi-axis tumble, sustained 11.5 rad/s angular spin, chassis inverted. Triggers SEVERE_CRASH.
+            </Text>
+          </View>
+          <Play size={18} color="#F85149" />
+        </TouchableOpacity>
+
+        {/* CARLA Scenario C: Monsoon Two-Wheeler Skid */}
+        <TouchableOpacity
+          style={styles.simCard}
+          activeOpacity={0.8}
+          onPress={() => runCarlaScenario(CarlaScenarioTemplates.twoWheelerSkid())}
+        >
+          <View style={[styles.simIconBox, { backgroundColor: 'rgba(227, 179, 65, 0.15)' }]}>
+            <Zap size={22} color="#E3B341" />
+          </View>
+          <View style={styles.simContent}>
+            <Text style={styles.simName}>CARLA: Monsoon Two-Wheeler Skid</Text>
+            <Text style={styles.simDesc}>
+              Loss of tire traction on wet road: High lateral force + yaw spin. Triggers SKID (Medium).
+            </Text>
+          </View>
+          <Play size={18} color="#E3B341" />
+        </TouchableOpacity>
+
+        {/* CARLA Scenario D: Evasive Stop / Near Miss */}
+        <TouchableOpacity
+          style={styles.simCard}
+          activeOpacity={0.8}
+          onPress={() => runCarlaScenario(CarlaScenarioTemplates.hardBrakingEvasive())}
+        >
+          <View style={[styles.simIconBox, { backgroundColor: 'rgba(255, 165, 0, 0.15)' }]}>
+            <ShieldAlert size={22} color="#FFA500" />
+          </View>
+          <View style={styles.simContent}>
+            <Text style={styles.simName}>CARLA: Evasive Emergency Stop (Near Miss)</Text>
+            <Text style={styles.simDesc}>
+              Pedestrian/cow sudden cut-in: 65 → 10 km/h emergency braking, level chassis. Triggers NEAR_MISS.
+            </Text>
+          </View>
+          <Play size={18} color="#FFA500" />
+        </TouchableOpacity>
+
+        {/* CARLA Scenario E: Phone Dropped In Cabin (Disagreement Demo) */}
+        <TouchableOpacity
+          style={styles.simCard}
+          activeOpacity={0.8}
+          onPress={() => runCarlaScenario(CarlaScenarioTemplates.phoneDroppedInCabin())}
+        >
+          <View style={[styles.simIconBox, { backgroundColor: 'rgba(210, 153, 34, 0.15)' }]}>
+            <AlertTriangle size={22} color="#D29922" />
+          </View>
+          <View style={styles.simContent}>
+            <Text style={styles.simName}>CARLA: Phone Dropped In Cabin (Disagreement Demo)</Text>
+            <Text style={styles.simDesc}>
+              6.75g shock at steady 50 km/h cruise, no crash sound. Flagged SENSOR_DISAGREEMENT (SOS Suppressed).
+            </Text>
+          </View>
+          <Play size={18} color="#D29922" />
+        </TouchableOpacity>
+
+        {/* CARLA Scenario F: Deep Pothole Hit */}
+        <TouchableOpacity
+          style={styles.simCard}
+          activeOpacity={0.8}
+          onPress={() => runCarlaScenario(CarlaScenarioTemplates.deepPotholeHit())}
+        >
+          <View style={[styles.simIconBox, { backgroundColor: 'rgba(63, 185, 80, 0.15)' }]}>
+            <CheckCircle size={22} color="#3FB950" />
+          </View>
+          <View style={styles.simContent}>
+            <Text style={styles.simName}>CARLA: Deep Monsoon Pothole Hit (40 km/h)</Text>
+            <Text style={styles.simDesc}>
+              2.6g isolated vertical depression, steady velocity. Triggers POTHOLE (Low severity).
+            </Text>
+          </View>
+          <Play size={18} color="#3FB950" />
+        </TouchableOpacity>
+
+        {/* CARLA Scenario G: Speed Breaker Pass */}
+        <TouchableOpacity
+          style={styles.simCard}
+          activeOpacity={0.8}
+          onPress={() => runCarlaScenario(CarlaScenarioTemplates.speedBreakerPass())}
+        >
+          <View style={[styles.simIconBox, { backgroundColor: 'rgba(63, 185, 80, 0.15)' }]}>
+            <CheckCircle size={22} color="#3FB950" />
+          </View>
+          <View style={styles.simContent}>
+            <Text style={styles.simName}>CARLA: Speed Breaker Traversal</Text>
+            <Text style={styles.simDesc}>
+              Symmetric vertical impulse + pitch rebound, temporary dip. Triggers SPEED_BREAKER (Low severity).
+            </Text>
+          </View>
+          <Play size={18} color="#3FB950" />
+        </TouchableOpacity>
+
+        {/* CARLA Scenario H: Rough Road Vibration */}
+        <TouchableOpacity
+          style={styles.simCard}
+          activeOpacity={0.8}
+          onPress={() => runCarlaScenario(CarlaScenarioTemplates.roughRoadVibration())}
+        >
+          <View style={[styles.simIconBox, { backgroundColor: 'rgba(88, 166, 255, 0.15)' }]}>
+            <Activity size={22} color="#58A6FF" />
+          </View>
+          <View style={styles.simContent}>
+            <Text style={styles.simName}>CARLA: Rough / Gravel Road Vibration</Text>
+            <Text style={styles.simDesc}>
+              Continuous vertical vibration variance & peak reversals (PMC9044339). Triggers ROUGH_ROAD.
             </Text>
           </View>
           <Play size={18} color="#58A6FF" />
@@ -815,5 +1174,193 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+  },
+  fusionDebugCard: {
+    backgroundColor: '#161B22',
+    borderColor: '#30363D',
+    borderWidth: 1,
+    borderRadius: 16,
+    marginHorizontal: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  fusionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  fusionPanelTitle: {
+    color: '#58A6FF',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  severityBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  badgeCrit: {
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    borderColor: '#FF3B30',
+  },
+  badgeHigh: {
+    backgroundColor: 'rgba(255, 149, 0, 0.15)',
+    borderColor: '#FF9500',
+  },
+  badgeMed: {
+    backgroundColor: 'rgba(227, 179, 65, 0.15)',
+    borderColor: '#E3B341',
+  },
+  badgeLow: {
+    backgroundColor: 'rgba(63, 185, 80, 0.15)',
+    borderColor: '#3FB950',
+  },
+  severityText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  textCrit: { color: '#FF3B30' },
+  textHigh: { color: '#FF9500' },
+  textMed: { color: '#E3B341' },
+  textLow: { color: '#3FB950' },
+  taxonomyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    backgroundColor: '#0D1117',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#21262D',
+  },
+  taxonomyLabel: {
+    color: '#8B949E',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  taxonomyPill: {
+    backgroundColor: '#21262D',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  taxonomyValue: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  temporalPhaseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    paddingHorizontal: 4,
+  },
+  temporalPhaseLabel: {
+    color: '#8B949E',
+    fontSize: 12,
+  },
+  phasePill: {
+    backgroundColor: 'rgba(88, 166, 255, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderColor: '#58A6FF',
+    borderWidth: 1,
+  },
+  phasePillText: {
+    color: '#58A6FF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  evidenceSection: {
+    marginBottom: 12,
+  },
+  evidenceTitle: {
+    color: '#8B949E',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  evidenceGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  evidenceItem: {
+    flex: 1,
+    backgroundColor: '#0D1117',
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#21262D',
+  },
+  evidenceLabel: {
+    color: '#8B949E',
+    fontSize: 10,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  evidenceVal: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  evidenceBarTrack: {
+    height: 4,
+    backgroundColor: '#21262D',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  evidenceBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  disagreementBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 165, 0, 0.12)',
+    borderColor: '#FFA500',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    gap: 8,
+    marginTop: 4,
+  },
+  disagreementTitle: {
+    color: '#FFA500',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  disagreementDesc: {
+    color: '#C9D1D9',
+    fontSize: 11,
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  agreementBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(63, 185, 80, 0.08)',
+    borderColor: 'rgba(63, 185, 80, 0.3)',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    gap: 8,
+    marginTop: 4,
+  },
+  agreementText: {
+    color: '#3FB950',
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

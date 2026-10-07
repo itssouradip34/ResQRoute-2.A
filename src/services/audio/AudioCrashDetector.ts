@@ -1,6 +1,6 @@
 import acousticModelData from '../../models/acoustic_model.json';
 
-export type AcousticClass = 'NORMAL_VEHICLE' | 'TIRE_SKID_SCREECH' | 'CRASH_IMPACT';
+export type AcousticClass = 'NORMAL_VEHICLE' | 'TIRE_SKID_SCREECH' | 'CRASH_IMPACT' | 'HORN_TRAFFIC';
 
 export interface AcousticFrame {
   timestamp: number;
@@ -31,6 +31,22 @@ class AudioCrashDetectorService {
   private listeners: Set<AcousticListener> = new Set();
   private cooldownUntil = 0;
   private model = acousticModelData;
+  private lastResult: AcousticDetectionResult | null = null;
+
+  public getLastResult(): AcousticDetectionResult | null {
+    return this.lastResult;
+  }
+
+  public getLastAcousticEvidence(): number {
+    if (!this.lastResult || !this.isConsentGranted) return 0;
+    if (this.lastResult.predictedClass === 'CRASH_IMPACT') {
+      return this.lastResult.confidenceScore;
+    }
+    if (this.lastResult.predictedClass === 'TIRE_SKID_SCREECH') {
+      return this.lastResult.confidenceScore * 0.6;
+    }
+    return 0;
+  }
 
   public setConsentGranted(granted: boolean) {
     this.isConsentGranted = granted;
@@ -135,13 +151,29 @@ class AudioCrashDetectorService {
       if (probs[i] > probs[maxIdx]) maxIdx = i;
     }
 
-    const predictedClass = classes[maxIdx];
-    const confidenceScore = Number(probs[maxIdx].toFixed(2));
-    const isCrashEvent = predictedClass === 'CRASH_IMPACT' && confidenceScore >= 0.70;
+    let predictedClass = classes[maxIdx];
+    let confidenceScore = Number(probs[maxIdx].toFixed(2));
+    let isCrashEvent = predictedClass === 'CRASH_IMPACT' && confidenceScore >= 0.70;
     const isSkidEvent = predictedClass === 'TIRE_SKID_SCREECH' && confidenceScore >= 0.70;
 
+    // Horn-Heavy Traffic Guard (Horn != Crash):
+    // Continuous narrow-band honk has high energy & high frequency but low spectral flux & low crest factor
+    const isHornSound =
+      frame.rmsEnergyDb > -20.0 &&
+      frame.spectralCentroidHz >= 2200 &&
+      frame.spectralFlux < 0.35 &&
+      frame.crestFactor < 5.2;
+
+    if (isHornSound) {
+      predictedClass = 'HORN_TRAFFIC';
+      confidenceScore = 0.92;
+      isCrashEvent = false;
+    }
+
     let reasoning = 'Normal vehicle cabin and ambient traffic audio';
-    if (isCrashEvent) {
+    if (isHornSound) {
+      reasoning = 'Ambient vehicle horn / honking detected (horn != crash). SOS dispatch suppressed.';
+    } else if (isCrashEvent) {
       reasoning = `High-energy metal collision/glass breakage acoustic signature detected (${(confidenceScore * 100).toFixed(0)}% confidence). SOS rescue recommended.`;
     } else if (isSkidEvent) {
       reasoning = `High-frequency tire friction / skidding acoustic detected (${(confidenceScore * 100).toFixed(0)}% confidence). Potential pre-crash event.`;
@@ -154,11 +186,14 @@ class AudioCrashDetectorService {
         NORMAL_VEHICLE: Number(probs[0].toFixed(3)),
         TIRE_SKID_SCREECH: Number(probs[1].toFixed(3)),
         CRASH_IMPACT: Number(probs[2].toFixed(3)),
+        HORN_TRAFFIC: isHornSound ? 0.92 : 0.05,
       },
       isCrashEvent,
       requiresSOS: isCrashEvent,
       reasoning,
     };
+
+    this.lastResult = result;
 
     const now = Date.now();
     if (isCrashEvent && now > this.cooldownUntil) {
@@ -172,7 +207,7 @@ class AudioCrashDetectorService {
   /**
    * Simulation studio method for live lab testing
    */
-  public simulateAcousticEvent(scenario: 'normal' | 'skid' | 'crash'): AcousticDetectionResult {
+  public simulateAcousticEvent(scenario: 'normal' | 'skid' | 'crash' | 'horn'): AcousticDetectionResult {
     let frame: AcousticFrame;
 
     if (scenario === 'crash') {
@@ -198,6 +233,18 @@ class AudioCrashDetectorService {
         midBandEnergy: 0.50,
         highBandEnergy: 0.88,
         crestFactor: 6.2,
+      };
+    } else if (scenario === 'horn') {
+      frame = {
+        timestamp: Date.now(),
+        rmsEnergyDb: -14.0,
+        spectralCentroidHz: 2850,
+        spectralFlux: 0.18,
+        zeroCrossingRate: 0.38,
+        lowBandEnergy: 0.12,
+        midBandEnergy: 0.78,
+        highBandEnergy: 0.45,
+        crestFactor: 3.6,
       };
     } else {
       frame = {

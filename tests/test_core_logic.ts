@@ -8,6 +8,8 @@ import { ServiceRanker } from '../src/services/directory/ServiceRanker';
 import { AITriageEngine } from '../src/services/ai/AITriageEngine';
 import { INDIA_EMERGENCY_SERVICES, NATIONAL_HELPLINES } from '../src/data/indiaEmergencyServices';
 import { UserLocation, SensorSnapshot } from '../src/types';
+import { sha256 } from '../src/utils/crypto';
+
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -311,18 +313,34 @@ async function runTestSuite() {
     captured_at: new Date().toISOString(),
   };
 
+  // Test NIST standard test vectors
+  const emptyHash = sha256('');
+  assert(
+    emptyHash === 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    `NIST empty string SHA-256 test vector must match, got ${emptyHash}`
+  );
+  const abcHash = sha256('abc');
+  assert(
+    abcHash === 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    `NIST 'abc' SHA-256 test vector must match, got ${abcHash}`
+  );
+
   const forensicPacket = await ForensicBlackboxService.captureAndSyncPacket(
     'test_incident_101',
     mockSnapshot,
     userLocDelhi,
     'user_test_99',
-    'Souradip Ghosh',
+    'Souradip Patra',
     'four_wheeler'
   );
 
   assert(
     forensicPacket.cryptographicHashSha256.startsWith('SHA256-'),
     `Cryptographic hash must start with SHA256-, got ${forensicPacket.cryptographicHashSha256}`
+  );
+  assert(
+    forensicPacket.cryptographicHashSha256.length === 71,
+    `Cryptographic hash must be 71 characters (SHA256- prefix + 64 hex chars), got length ${forensicPacket.cryptographicHashSha256.length}`
   );
   assert(
     forensicPacket.speedDeltaKmH === 85,
@@ -332,6 +350,7 @@ async function runTestSuite() {
     forensicPacket.policeSummaryNote.includes('85 km/h'),
     'Police investigation summary must contain pre-crash speed'
   );
+
 
   // ----------------------------------------------------
   // TEST 11: Live Nearby Services Haversine Calculator

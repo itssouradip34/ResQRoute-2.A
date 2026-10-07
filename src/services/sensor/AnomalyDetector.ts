@@ -2,6 +2,9 @@ import {
   AnomalyDetectionResult,
   SensitivityLevel,
   SensorSnapshot,
+  CrashTaxonomyClass,
+  EventSeverity,
+  TemporalPhase,
 } from '../../types';
 import { SensorFrame } from './SensorHub';
 import {
@@ -12,6 +15,11 @@ import {
   PersonalizedThresholdAdapter,
   DriverProfile,
 } from './PersonalizedThresholdAdapter';
+import { IMUFeatureExtractor } from './IMUFeatureExtractor';
+import { SpeedFeatureExtractor } from './SpeedFeatureExtractor';
+import { TemporalWindowManager } from './TemporalWindowManager';
+import { MultimodalFusionEngine } from './MultimodalFusionEngine';
+import { AudioCrashDetector } from '../audio/AudioCrashDetector';
 
 export interface DetectionThresholds {
   crashAnomalyThreshold: number;
@@ -76,6 +84,7 @@ class AnomalyDetectorService {
   private sensitivity: SensitivityLevel = 'medium';
   private cooldownUntil = 0; // Prevent spamming triggers within cooldown window
   private driverProfile?: DriverProfile;
+  private temporalWindowManager = new TemporalWindowManager();
 
   public setSensitivity(level: SensitivityLevel) {
     this.sensitivity = level;
@@ -103,13 +112,12 @@ class AnomalyDetectorService {
 
   public resetCooldown() {
     this.cooldownUntil = 0;
+    this.temporalWindowManager.clear();
   }
 
   /**
-   * Evaluate rolling sensor frames using VZCrash neural network weights & 3 real-life kinematic rules:
-   *   Rule A: Sudden drop in accelerometer and no gyro intensity break -> Obstacle faced
-   *   Rule B: Accelerometer no intensity changes but gyro change obvious -> Heavy bump (suppressed)
-   *   Rule C: Both intensity change -> Accident
+   * Evaluate rolling sensor frames using Multimodal Sensor Fusion:
+   * Combines IMU 3D projections, Speed Dynamics, Audio ML Classifier, and 5-stage Temporal windowing.
    */
   public evaluateFrame(
     currentFrame: SensorFrame,
@@ -118,22 +126,20 @@ class AnomalyDetectorService {
     const now = Date.now();
     const thresholds = this.getThresholds();
 
-    // 1. Calculate Gyro Turbulence (Magnitude of rotational velocity rad/s)
+    // Track frame in temporal window
+    this.temporalWindowManager.addFrame(currentFrame);
+    const temporalPhase = this.temporalWindowManager.evaluatePhase(currentFrame);
+
+    // 1. Extract Multimodal Features
+    const imuFeatures = IMUFeatureExtractor.extractFeatures(currentFrame, history);
+    const speedFeatures = SpeedFeatureExtractor.extractFeatures(currentFrame, history);
+
     const gyroTurbulence = currentFrame.gyro.magnitude;
-
-    // 2. Calculate Accelerometer Jerk (Instantaneous impact force derivative)
     const accelJerk = currentFrame.accel.jerk;
+    const speedBefore = speedFeatures.speedBeforeKmH;
+    const speedAfter = speedFeatures.speedAfterKmH;
+    const speedDropDelta = speedFeatures.deltaVKmH;
 
-    // 3. Calculate Speed Drop Delta over sliding window (last ~1.5 - 2s)
-    let speedBefore = currentFrame.speedKmH;
-    if (history.length > 0) {
-      const windowStartFrame = history[0];
-      speedBefore = windowStartFrame.speedKmH;
-    }
-    const speedAfter = currentFrame.speedKmH;
-    const speedDropDelta = Math.max(0, speedBefore - speedAfter);
-
-    // 4. Calculate Peak Metrics for Snapshot
     let accelPeak = currentFrame.accel.magnitude;
     let gyroPeak = currentFrame.gyro.magnitude;
     history.forEach((f) => {
@@ -141,7 +147,7 @@ class AnomalyDetectorService {
       if (f.gyro.magnitude > gyroPeak) gyroPeak = f.gyro.magnitude;
     });
 
-    // 5. Compute Weighted Anomaly Score
+    // Compute Weighted Anomaly Score
     const normalizedGyro = gyroTurbulence;
     const normalizedJerk = accelJerk / 5.0;
     const normalizedSpeedDrop = speedDropDelta / 10.0;
@@ -178,13 +184,30 @@ class AnomalyDetectorService {
         speedDropDelta,
         snapshot,
         reasoning: 'Within trigger cooldown window',
+        taxonomyClass: 'NORMAL_DRIVING',
+        severity: 'LOW',
+        temporalPhase,
       };
     }
 
+    // Query Audio Evidence
+    const isAudioConsentGranted = AudioCrashDetector.getConsentGranted();
+    const acousticEvidence = AudioCrashDetector.getLastAcousticEvidence();
+    const acousticResult = AudioCrashDetector.getLastResult();
+    const acousticClass = acousticResult?.predictedClass;
+
+    // Run Multimodal Sensor-Fusion Engine
+    const fusion = MultimodalFusionEngine.fuse({
+      imu: imuFeatures,
+      speed: speedFeatures,
+      acousticEvidence,
+      acousticClass,
+      temporalPhase,
+      isAudioConsentGranted,
+    });
+
     // =========================================================================
     // STATIONARY HAND-SHAKE FILTER (Zero-Speed T=0 False Positive Guard)
-    // If phone is stationary (speed < 12 km/h before & after), shaking in hand
-    // generates high jerk & gyro rotation without vehicular momentum or speed drop.
     // =========================================================================
     const isStationary = speedBefore < 12 && speedAfter < 12;
     if (isStationary) {
@@ -202,13 +225,19 @@ class AnomalyDetectorService {
           snapshot,
           reasoning:
             'Stationary hand movement / phone shake detected at 0 km/h. False-positive SOS suppressed.',
+          taxonomyClass: 'NORMAL_DRIVING',
+          severity: 'LOW',
+          evidenceScores: fusion.evidenceScores,
+          disagreementReport: fusion.disagreementReport,
+          temporalPhase,
+          jerkMs3: accelJerk,
+          speedDropPct: speedFeatures.percentageDrop,
         };
       }
     }
 
     // =========================================================================
-    // RULE C: BOTH INTENSITY CHANGE -> ACCIDENT
-    // Sudden shock/jerk in accelerometer AND violent gyro tumble/rotation
+    // RULE C: BOTH INTENSITY CHANGE -> ACCIDENT / COLLISION
     // =========================================================================
     const isBothIntensityCrash =
       (accelJerk >= thresholds.accelJerkCrashThreshold ||
@@ -219,7 +248,28 @@ class AnomalyDetectorService {
     const isHighEnergyTumble =
       gyroTurbulence >= thresholds.gyroCrashThreshold * 1.35;
 
-    if (isBothIntensityCrash || isHighEnergyTumble) {
+    if (isBothIntensityCrash || isHighEnergyTumble || fusion.taxonomyClass === 'COLLISION' || fusion.taxonomyClass === 'SEVERE_CRASH') {
+      // Check for Phone Drop Disagreement before triggering crash
+      if (fusion.taxonomyClass === 'SENSOR_DISAGREEMENT' && !fusion.requiresSOS) {
+        return {
+          eventType: 'NO_ANOMALY',
+          confidenceScore: 0.1,
+          anomalyScore,
+          gyroTurbulence,
+          accelJerk,
+          speedDropDelta,
+          snapshot,
+          reasoning: fusion.reasoning,
+          taxonomyClass: 'SENSOR_DISAGREEMENT',
+          severity: 'LOW',
+          evidenceScores: fusion.evidenceScores,
+          disagreementReport: fusion.disagreementReport,
+          temporalPhase,
+          jerkMs3: accelJerk,
+          speedDropPct: speedFeatures.percentageDrop,
+        };
+      }
+
       this.cooldownUntil = now + 12000;
       const confidence = Math.min(
         0.98,
@@ -236,19 +286,25 @@ class AnomalyDetectorService {
         snapshot,
         reasoning:
           'Rule C: Both accelerometer shock and violent gyro rotation changed simultaneously (High confidence accident)',
+        taxonomyClass: fusion.taxonomyClass === 'SEVERE_CRASH' ? 'SEVERE_CRASH' : 'COLLISION',
+        severity: 'CRITICAL',
+        evidenceScores: fusion.evidenceScores,
+        disagreementReport: fusion.disagreementReport,
+        temporalPhase,
+        jerkMs3: accelJerk,
+        speedDropPct: speedFeatures.percentageDrop,
       };
     }
 
     // =========================================================================
-    // RULE A: SUDDEN DROP IN ACCELEROMETER AND NO GYRO BREAK -> OBSTACLE FACED
-    // Sudden drop in accelerometer (high jerk/deceleration) with speed drop and chassis level (no gyro tumble)
+    // RULE A: SUDDEN DROP IN ACCELEROMETER AND NO GYRO BREAK -> OBSTACLE FACED / NEAR MISS
     // =========================================================================
     const isObstacleFaced =
       accelJerk >= thresholds.obstacleJerkThreshold &&
       speedDropDelta >= thresholds.obstacleSpeedDropThreshold &&
       gyroTurbulence < thresholds.gyroCrashThreshold * 0.45;
 
-    if (isObstacleFaced) {
+    if (isObstacleFaced || fusion.taxonomyClass === 'NEAR_MISS') {
       this.cooldownUntil = now + 8000;
       const confidence = Math.min(
         0.94,
@@ -265,19 +321,25 @@ class AnomalyDetectorService {
         snapshot,
         reasoning:
           'Rule A: Sudden drop in accelerometer with no gyro break (Obstacle faced / emergency braking)',
+        taxonomyClass: 'NEAR_MISS',
+        severity: 'HIGH',
+        evidenceScores: fusion.evidenceScores,
+        disagreementReport: fusion.disagreementReport,
+        temporalPhase,
+        jerkMs3: accelJerk,
+        speedDropPct: speedFeatures.percentageDrop,
       };
     }
 
     // =========================================================================
-    // RULE B: ACCELEROMETER NO INTENSITY CHANGES BUT GYRO CHANGE OBVIOUS -> HEAVY BUMP
-    // Speed maintained with high angular pitch/roll or bump (suppressed from emergency SOS)
+    // RULE B: HEAVY BUMP / SPEED BREAKER (ACCEL STEADY, GYRO OBVIOUS)
     // =========================================================================
     const isHeavyBump =
       speedDropDelta <= thresholds.bumpSpeedDropMax &&
       gyroTurbulence >= thresholds.bumpGyroMin &&
       accelJerk < thresholds.accelJerkCrashThreshold;
 
-    if (isHeavyBump) {
+    if (isHeavyBump || fusion.taxonomyClass === 'SPEED_BREAKER') {
       return {
         eventType: 'HEAVY_BUMP',
         confidenceScore: 0.15,
@@ -288,6 +350,75 @@ class AnomalyDetectorService {
         snapshot,
         reasoning:
           'Rule B: Accelerometer steady with obvious gyro deflection (Heavy bump / speed breaker suppressed)',
+        taxonomyClass: 'SPEED_BREAKER',
+        severity: 'LOW',
+        evidenceScores: fusion.evidenceScores,
+        disagreementReport: fusion.disagreementReport,
+        temporalPhase,
+        jerkMs3: accelJerk,
+        speedDropPct: speedFeatures.percentageDrop,
+      };
+    }
+
+    // Rotational Maneuvers (Skid / Sharp Turn)
+    if (fusion.taxonomyClass === 'SKID') {
+      return {
+        eventType: 'NO_ANOMALY',
+        confidenceScore: 0.25,
+        anomalyScore,
+        gyroTurbulence,
+        accelJerk,
+        speedDropDelta,
+        snapshot,
+        reasoning: fusion.reasoning,
+        taxonomyClass: 'SKID',
+        severity: 'MEDIUM',
+        evidenceScores: fusion.evidenceScores,
+        disagreementReport: fusion.disagreementReport,
+        temporalPhase,
+        jerkMs3: accelJerk,
+        speedDropPct: speedFeatures.percentageDrop,
+      };
+    }
+
+    if (fusion.taxonomyClass === 'SHARP_TURN') {
+      return {
+        eventType: 'NO_ANOMALY',
+        confidenceScore: 0.1,
+        anomalyScore,
+        gyroTurbulence,
+        accelJerk,
+        speedDropDelta,
+        snapshot,
+        reasoning: fusion.reasoning,
+        taxonomyClass: 'SHARP_TURN',
+        severity: 'MEDIUM',
+        evidenceScores: fusion.evidenceScores,
+        disagreementReport: fusion.disagreementReport,
+        temporalPhase,
+        jerkMs3: accelJerk,
+        speedDropPct: speedFeatures.percentageDrop,
+      };
+    }
+
+    // Pothole / Rough Road
+    if (fusion.taxonomyClass === 'POTHOLE' || fusion.taxonomyClass === 'ROUGH_ROAD') {
+      return {
+        eventType: 'NO_ANOMALY',
+        confidenceScore: 0.1,
+        anomalyScore,
+        gyroTurbulence,
+        accelJerk,
+        speedDropDelta,
+        snapshot,
+        reasoning: fusion.reasoning,
+        taxonomyClass: fusion.taxonomyClass,
+        severity: 'LOW',
+        evidenceScores: fusion.evidenceScores,
+        disagreementReport: fusion.disagreementReport,
+        temporalPhase,
+        jerkMs3: accelJerk,
+        speedDropPct: speedFeatures.percentageDrop,
       };
     }
 
@@ -303,6 +434,13 @@ class AnomalyDetectorService {
         speedDropDelta,
         snapshot,
         reasoning: 'Mechanical drag / tyre blowout deceleration detected',
+        taxonomyClass: 'HARD_BRAKING',
+        severity: 'MEDIUM',
+        evidenceScores: fusion.evidenceScores,
+        disagreementReport: fusion.disagreementReport,
+        temporalPhase,
+        jerkMs3: accelJerk,
+        speedDropPct: speedFeatures.percentageDrop,
       };
     }
 
@@ -316,6 +454,13 @@ class AnomalyDetectorService {
       speedDropDelta,
       snapshot,
       reasoning: 'Normal motion within safe operational parameters',
+      taxonomyClass: 'NORMAL_DRIVING',
+      severity: 'LOW',
+      evidenceScores: fusion.evidenceScores,
+      disagreementReport: fusion.disagreementReport,
+      temporalPhase,
+      jerkMs3: accelJerk,
+      speedDropPct: speedFeatures.percentageDrop,
     };
   }
 }

@@ -52,6 +52,45 @@ export interface SensorSnapshot {
   captured_at: string;
 }
 
+export type CrashTaxonomyClass =
+  | 'NORMAL_DRIVING'
+  | 'POTHOLE'
+  | 'SPEED_BREAKER'
+  | 'ROUGH_ROAD'
+  | 'HARD_BRAKING'
+  | 'HARD_ACCELERATION'
+  | 'SHARP_TURN'
+  | 'SKID'
+  | 'NEAR_MISS'
+  | 'COLLISION'
+  | 'SEVERE_CRASH'
+  | 'SENSOR_DISAGREEMENT'
+  | 'UNKNOWN';
+
+export type EventSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export type TemporalPhase =
+  | 'PRE_EVENT'
+  | 'DISTURBANCE'
+  | 'PEAK'
+  | 'RECOVERY'
+  | 'POST_EVENT';
+
+export interface ModalityEvidenceScores {
+  imuEvidence: number;
+  speedEvidence: number;
+  audioEvidence?: number;
+  temporalEvidence: number;
+  normalizedScore: number;
+  weights: { imu: number; speed: number; audio: number; temporal: number };
+}
+
+export interface DisagreementReport {
+  hasDisagreement: boolean;
+  conflictingModalities: ('IMU' | 'SPEED' | 'AUDIO' | 'TEMPORAL')[];
+  reason: string;
+}
+
 export interface AnomalyDetectionResult {
   eventType:
     | 'POSSIBLE_ACCIDENT'
@@ -68,6 +107,15 @@ export interface AnomalyDetectionResult {
   speedDropDelta: number;
   snapshot: SensorSnapshot;
   reasoning: string;
+
+  // Multimodal Sensor-Fusion Extended Fields
+  taxonomyClass?: CrashTaxonomyClass;
+  severity?: EventSeverity;
+  evidenceScores?: ModalityEvidenceScores;
+  disagreementReport?: DisagreementReport;
+  temporalPhase?: TemporalPhase;
+  jerkMs3?: number;
+  speedDropPct?: number;
 }
 
 export interface EmergencyService {

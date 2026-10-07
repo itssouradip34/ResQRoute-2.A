@@ -9,17 +9,6 @@ import {
   View,
 } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
-import {
-  Activity,
-  Bot,
-  FileText,
-  Flame,
-  Home,
-  ListOrdered,
-  Settings,
-  ShieldAlert,
-  Users,
-} from 'lucide-react-native';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
 import { EmergencyProvider, useEmergency } from './src/context/EmergencyContext';
 import { AuthProvider } from './src/context/AuthContext';
@@ -28,6 +17,8 @@ import { CountdownModal } from './src/components/CountdownModal';
 import { ManualSOSButton } from './src/components/ManualSOSButton';
 import { AudioAlertPlayer } from './src/components/AudioAlertPlayer';
 import { AuthModal } from './src/components/AuthModal';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { APP_TABS, TabType, getTabSubtitle } from './src/navigation/TabsConfig';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { ServicesListScreen } from './src/screens/ServicesListScreen';
 import { AIChatTriageScreen } from './src/screens/AIChatTriageScreen';
@@ -36,8 +27,6 @@ import { TrustedContactsScreen } from './src/screens/TrustedContactsScreen';
 import { ForensicReportScreen } from './src/screens/ForensicReportScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { SituationType } from './src/types';
-
-type TabType = 'home' | 'services' | 'chat' | 'forensics' | 'sensor_lab' | 'contacts' | 'settings';
 
 const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('home');
@@ -70,15 +59,6 @@ const MainApp: React.FC = () => {
     setActiveTab('chat');
   };
 
-  const tabs: { id: TabType; label_en: string; label_hi: string; icon: any }[] = [
-    { id: 'home', label_en: 'Rescue', label_hi: 'रेस्क्यू', icon: Home },
-    { id: 'services', label_en: 'Services', label_hi: 'सेवाएं', icon: ListOrdered },
-    { id: 'chat', label_en: 'AI Triage', label_hi: 'AI चैट', icon: Bot },
-    { id: 'forensics', label_en: 'Forensics', label_hi: 'फॉरेंसिक', icon: FileText },
-    { id: 'sensor_lab', label_en: 'Sensor Lab', label_hi: 'सेंसर लैब', icon: Activity },
-    { id: 'contacts', label_en: 'Contacts', label_hi: 'संपर्क', icon: Users },
-    { id: 'settings', label_en: 'Settings', label_hi: 'सेटिंग्स', icon: Settings },
-  ];
 
   const renderActiveScreen = () => {
     switch (activeTab) {
@@ -113,21 +93,7 @@ const MainApp: React.FC = () => {
       {/* Top Header */}
       <Header
         title="ResQRoute-A"
-        subtitle={
-          activeTab === 'home'
-            ? undefined
-            : activeTab === 'services'
-            ? 'Nearby Emergency Directory'
-            : activeTab === 'chat'
-            ? 'AI Triage & Guidance'
-            : activeTab === 'forensics'
-            ? 'Post-Accident Police Dossier'
-            : activeTab === 'sensor_lab'
-            ? 'Kinematic Sensor Lab'
-            : activeTab === 'contacts'
-            ? 'Trusted Contacts & Tracking'
-            : 'Preferences & Storage'
-        }
+        subtitle={activeTab === 'home' ? undefined : getTabSubtitle(activeTab)}
       />
 
       {/* Screen Content */}
@@ -138,7 +104,7 @@ const MainApp: React.FC = () => {
 
       {/* Bottom Navigation Bar */}
       <View style={styles.bottomNav}>
-        {tabs.map((tab) => {
+        {APP_TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
@@ -177,16 +143,19 @@ const MainApp: React.FC = () => {
 
 export default function App() {
   return (
-    <SettingsProvider>
-      <AuthProvider>
-        <EmergencyProvider>
-          <MainApp />
-          <AuthModal />
-        </EmergencyProvider>
-      </AuthProvider>
-    </SettingsProvider>
+    <ErrorBoundary>
+      <SettingsProvider>
+        <AuthProvider>
+          <EmergencyProvider>
+            <MainApp />
+            <AuthModal />
+          </EmergencyProvider>
+        </AuthProvider>
+      </SettingsProvider>
+    </ErrorBoundary>
   );
 }
+
 
 const styles = StyleSheet.create({
   safeArea: {

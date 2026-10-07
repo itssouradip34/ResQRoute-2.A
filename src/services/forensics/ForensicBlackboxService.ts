@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabase/supabaseClient';
 import { SensorFrame, SensorHub } from '../sensor/SensorHub';
 import { SensorSnapshot, UserLocation, VehicleType } from '../../types';
+import { sha256 } from '../../utils/crypto';
+
 
 export interface BlackboxTelemetryFrame {
   timestamp: number;
@@ -80,22 +82,13 @@ class ForensicBlackboxServiceClass {
   }
 
   /**
-   * Deterministic SHA-256 hash generator for chain-of-custody forensic integrity
+   * NIST FIPS 180-4 standard SHA-256 hash generator for chain-of-custody forensic integrity
    */
-  private generateForensicHash(dataString: string): string {
-    let hash1 = 0xdeadbeef;
-    let hash2 = 0x41c6ce57;
-    for (let i = 0; i < dataString.length; i++) {
-      const ch = dataString.charCodeAt(i);
-      hash1 = Math.imul(hash1 ^ ch, 2654435761);
-      hash2 = Math.imul(hash2 ^ ch, 1597334677);
-    }
-    hash1 = Math.imul(hash1 ^ (hash1 >>> 16), 2246822507) ^ Math.imul(hash2 ^ (hash2 >>> 13), 3266489909);
-    hash2 = Math.imul(hash2 ^ (hash2 >>> 16), 2246822507) ^ Math.imul(hash1 ^ (hash1 >>> 13), 3266489909);
-    const hex1 = (hash1 >>> 0).toString(16).padStart(8, '0');
-    const hex2 = (hash2 >>> 0).toString(16).padStart(8, '0');
-    return `SHA256-${hex1}${hex2}f98a2c1b7e4d`;
+  public generateForensicHash(dataString: string): string {
+    const digestHex = sha256(dataString);
+    return `SHA256-${digestHex}`;
   }
+
 
   /**
    * Classify 3D impact vector from deceleration and tilt directions

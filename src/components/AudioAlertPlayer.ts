@@ -7,7 +7,7 @@ class AudioAlertPlayerClass {
   private player: AudioPlayer | null = null;
   private isPlaying = false;
   private webAudioCtx: any = null;
-  private webOscillator: any = null;
+  private webTimerId: any = null;
 
   public async startAlarm() {
     if (this.isPlaying) return;
@@ -72,7 +72,10 @@ class AudioAlertPlayerClass {
       osc.start();
       osc.stop(this.webAudioCtx.currentTime + 0.4);
 
-      setTimeout(() => {
+      if (this.webTimerId) {
+        clearTimeout(this.webTimerId);
+      }
+      this.webTimerId = setTimeout(() => {
         if (this.isPlaying) this.playWebSiren();
       }, 500);
     } catch {
@@ -82,6 +85,10 @@ class AudioAlertPlayerClass {
 
   public stopAlarm() {
     this.isPlaying = false;
+    if (this.webTimerId) {
+      clearTimeout(this.webTimerId);
+      this.webTimerId = null;
+    }
     if (this.player) {
       try {
         this.player.pause();
@@ -97,6 +104,7 @@ class AudioAlertPlayerClass {
       this.webAudioCtx = null;
     }
   }
+
 }
 
 export const AudioAlertPlayer = new AudioAlertPlayerClass();

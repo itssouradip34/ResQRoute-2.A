@@ -14,10 +14,13 @@ expo-env.d.ts
 # Native
 .kotlin/
 *.orig.*
+# certificates and keys
+*.pem
+*.key
 *.jks
 *.p8
 *.p12
-*.key
+*.keystore
 *.mobileprovision
 
 # Metro
@@ -30,10 +33,11 @@ yarn-error.*
 
 # macOS
 .DS_Store
-*.pem
 
-# local env files
-.env*.local
+# local and production env files
+.env
+.env.*
+!.env.example
 
 # typescript
 *.tsbuildinfo
@@ -41,3 +45,4 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
